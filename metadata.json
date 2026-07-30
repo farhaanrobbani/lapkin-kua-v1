@@ -1,0 +1,6 @@
+{
+  "name": "Sistem Informasi Laporan Kinerja KUA",
+  "description": "Aplikasi pelaporan kinerja harian dan rekapitulasi tukin pegawai KUA",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

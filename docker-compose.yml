@@ -1,0 +1,41 @@
+version: '3.8'
+
+services:
+  app:
+    build: .
+    container_name: kua_app_production
+    ports:
+      # Port 7000 diekspos keluar
+      - "7000:7000"
+    # Mengambil variabel lingkungan langsung dari file .env
+    env_file:
+      - .env
+    depends_on:
+      postgres:
+        # Aplikasi HANYA akan menyala jika postgres sudah 100% siap menerima koneksi
+        condition: service_healthy
+    restart: always
+
+  postgres:
+    image: postgres:15-alpine
+    container_name: kua_postgres_db
+    env_file:
+      - .env
+    ports:
+      # Port 5432 hanya dibuka untuk localhost server (127.0.0.1) demi keamanan
+      - "127.0.0.1:5432:5432"
+    volumes:
+      # Menyimpan data database agar tidak hilang saat container direstart
+      - pgdata:/var/lib/postgresql/data
+      # Menjalankan skrip schema.sql secara otomatis saat database PERTAMA KALI dibuat
+      - ./src/server/db/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+    healthcheck:
+      # Memastikan database benar-benar aktif (menggunakan kredensial dari .env)
+      test: ["CMD-SHELL", "pg_isready -U $$POSTGRES_USER -d $$POSTGRES_DB"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    restart: always
+
+volumes:
+  pgdata:

@@ -1,0 +1,23 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@media print {
+  body {
+    background-color: white !important;
+    color: black !important;
+  }
+  nav, sidebar, header, button, .no-print {
+    display: none !important;
+  }
+  #template-laporan-kinerja,
+  #template-rekap-tukin {
+    box-shadow: none !important;
+    border: none !important;
+    padding: 0 !important;
+    margin: 0 auto !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    border-radius: 0 !important;
+  }
+}
