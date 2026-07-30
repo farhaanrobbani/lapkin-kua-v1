@@ -24,10 +24,11 @@ interface Props {
 export const ReportExportView: React.FC<Props> = ({ showToast }) => {
   const { token, user } = useAuth();
   
-  const [selectedMonth, setSelectedMonth] = useState<number>(7); // July
+  const [selectedMonth, setSelectedMonth] = useState<number>(7);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
   const [totalHariKerja, setTotalHariKerja] = useState<number>(22);
-  const [customCetakDate, setCustomCetakDate] = useState<string>('Ampelgading, 31 Juli 2026');
+  const [kuaName, setKuaName] = useState('KUA Ampelgading');
+  const [customCetakDate, setCustomCetakDate] = useState<string>('KUA Ampelgading, 31 Juli 2026');
   const [activeTemplate, setActiveTemplate] = useState<'template1' | 'template2'>('template1');
 
   const [activities, setActivities] = useState<StaffActivity[]>([]);
@@ -48,7 +49,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
   const fetchReportData = async () => {
     setLoading(true);
     try {
-      const [resAct, resPjb, resUsers] = await Promise.all([
+      const [resAct, resPjb, resUsers, resSettings] = await Promise.all([
         fetch(`/api/staff-activities?user_id=${selectedUserId}&month=${selectedMonth}&year=${selectedYear}`, {
           headers: { 'Authorization': `Bearer ${token}` }
         }),
@@ -57,7 +58,8 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
         }),
         user?.role === 'admin'
           ? fetch('/api/users', { headers: { 'Authorization': `Bearer ${token}` } })
-          : Promise.resolve(null)
+          : Promise.resolve(null),
+        fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } })
       ]);
 
       if (resAct.ok) {
@@ -72,6 +74,10 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
         const json = await resUsers.json();
         setAllUsers(json.users || []);
       }
+      if (resSettings.ok) {
+        const json = await resSettings.json();
+        if (json.settings?.kua_instansi) setKuaName(json.settings.kua_instansi);
+      }
     } catch {
       showToast('error', 'Gagal memuat data laporan.');
     } finally {
@@ -85,9 +91,9 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
     if (activeTemplate === 'template1') {
       setCustomCetakDate(`${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
     } else {
-      setCustomCetakDate(`Ampelgading, ${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
+      setCustomCetakDate(`${kuaName}, ${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
     }
-  }, [selectedMonth, selectedYear, activeTemplate]);
+  }, [selectedMonth, selectedYear, activeTemplate, kuaName]);
 
   useEffect(() => {
     if (token && selectedUserId) {

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Building2, UserPlus, ArrowLeft } from 'lucide-react';
 
@@ -25,6 +25,17 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, sho
     instansi: 'KUA Ampelgading'
   });
   const [loading, setLoading] = useState(false);
+
+  useEffect(() => {
+    fetch('/api/settings')
+      .then(r => r.json())
+      .then(d => {
+        if (d.settings?.kua_instansi) {
+          setFormData(prev => ({ ...prev, instansi: d.settings.kua_instansi }));
+        }
+      })
+      .catch(() => {});
+  }, []);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();

@@ -5,8 +5,8 @@ services:
     build: .
     container_name: kua_app_production
     ports:
-      # Port 7000 diekspos keluar
-      - "7000:7000"
+      # Port 5000 diekspos keluar
+      - "5000:7000"
     # Mengambil variabel lingkungan langsung dari file .env
     env_file:
       - .env

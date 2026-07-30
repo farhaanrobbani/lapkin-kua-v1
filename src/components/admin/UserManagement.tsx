@@ -24,6 +24,16 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
 
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingUser, setEditingUser] = useState<Partial<User> & { password?: string } | null>(null);
+  const [defaultInstansi, setDefaultInstansi] = useState('KUA Ampelgading');
+
+  useEffect(() => {
+    if (token) {
+      fetch('/api/settings', { headers: { 'Authorization': `Bearer ${token}` } })
+        .then(r => r.json())
+        .then(d => { if (d.settings?.kua_instansi) setDefaultInstansi(d.settings.kua_instansi); })
+        .catch(() => {});
+    }
+  }, [token]);
 
   const fetchUsers = async () => {
     setLoading(true);
@@ -61,7 +71,7 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
       jumlah_tukin_kotor: 4595000,
       jumlah_tukin_bersih: 4365250,
       gapok: 3600000,
-      instansi: 'KUA Ampelgading',
+      instansi: defaultInstansi,
       foto_profil_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       tanda_tangan_url: ''
     });

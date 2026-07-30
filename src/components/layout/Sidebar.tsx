@@ -9,7 +9,8 @@ import {
   FileText,
   Bot,
   Terminal,
-  UserCheck
+  UserCheck,
+  Settings
 } from 'lucide-react';
 
 export type NavTab =
@@ -18,6 +19,7 @@ export type NavTab =
   | 'staff_activities'
   | 'user_management'
   | 'pejabat_penilai'
+  | 'app_settings'
   | 'report_export'
   | 'telegram'
   | 'deployment';
@@ -28,8 +30,20 @@ interface SidebarProps {
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => {
-  const { user } = useAuth();
+  const { user, token } = useAuth();
   const isAdmin = user?.role === 'admin';
+  const [kuaName, setKuaName] = React.useState('KUA Ampelgading');
+
+  React.useEffect(() => {
+    if (token) {
+      fetch('/api/settings', {
+        headers: { 'Authorization': `Bearer ${token}` }
+      })
+        .then(r => r.json())
+        .then(d => { if (d.settings?.kua_instansi) setKuaName(d.settings.kua_instansi); })
+        .catch(() => {});
+    }
+  }, [token]);
 
   const navItems = [
     {
@@ -68,6 +82,13 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       id: 'pejabat_penilai',
       label: 'Pengaturan Pejabat Penilai',
       icon: UserCheck,
+      roles: ['admin'],
+      badge: 'Admin'
+    },
+    {
+      id: 'app_settings',
+      label: 'Pengaturan Aplikasi',
+      icon: Settings,
       roles: ['admin'],
       badge: 'Admin'
     },
@@ -125,7 +146,7 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       <div className="mt-8 p-3 rounded-xl bg-slate-100 dark:bg-slate-800/60 border border-slate-200 dark:border-slate-700/50">
         <div className="flex items-center space-x-2 text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
           <Award className="w-4 h-4 text-emerald-500" />
-          <span>KUA Ampelgading</span>
+          <span>{kuaName}</span>
         </div>
         <p className="text-[11px] text-slate-500 dark:text-slate-400">
           Sistem Laporan Kinerja & Rekap Tukin Otomatis

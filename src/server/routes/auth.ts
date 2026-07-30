@@ -1,6 +1,6 @@
 import { Router, Request, Response } from 'express';
 import bcrypt from 'bcryptjs';
-import { db } from '../db/database';
+import { db, getKuaInstansi } from '../db/database';
 import { generateToken, authMiddleware, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -58,6 +58,7 @@ router.post('/register', async (req: Request, res: Response) => {
       return res.status(400).json({ error: 'Email sudah terdaftar dalam sistem.' });
     }
 
+    const defaultInstansi = await getKuaInstansi();
     const newUser = await db.createUser(
       {
         id: '',
@@ -75,7 +76,7 @@ router.post('/register', async (req: Request, res: Response) => {
         gapok: Number(gapok) || 3600000,
         foto_profil_url: foto_profil_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         tanda_tangan_url: tanda_tangan_url || '',
-        instansi: instansi || 'KUA Ampelgading'
+        instansi: instansi || defaultInstansi
       },
       password
     );

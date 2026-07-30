@@ -10,6 +10,7 @@ import { StaffActivityManagement } from './components/staff/StaffActivityManagem
 import { ReportExportView } from './components/reports/ReportExportView';
 import { UserManagement } from './components/admin/UserManagement';
 import { PejabatPenilaiSettings } from './components/admin/PejabatPenilaiSettings';
+import { AppSettings } from './components/admin/AppSettings';
 import { TelegramBotPanel } from './components/telegram/TelegramBotPanel';
 import { DeploymentGuideView } from './components/deployment/DeploymentGuideView';
 import { ToastContainer, ToastMessage } from './components/ui/Toast';
@@ -87,6 +88,7 @@ function AppContent() {
           {activeTab === 'report_export' && <ReportExportView showToast={showToast} />}
           {activeTab === 'user_management' && <UserManagement showToast={showToast} />}
           {activeTab === 'pejabat_penilai' && <PejabatPenilaiSettings showToast={showToast} />}
+          {activeTab === 'app_settings' && <AppSettings showToast={showToast} />}
           {activeTab === 'telegram' && <TelegramBotPanel showToast={showToast} />}
           {activeTab === 'deployment' && <DeploymentGuideView />}
         </main>

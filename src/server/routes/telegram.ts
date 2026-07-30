@@ -1,5 +1,5 @@
 import { Router, Request, Response } from 'express';
-import { db } from '../db/database';
+import { db, getKuaInstansi } from '../db/database';
 
 const router = Router();
 
@@ -58,12 +58,13 @@ router.post('/webhook', async (req: Request, res: Response) => {
       const userName = msg.from ? `${msg.from.first_name || ''} ${msg.from.last_name || ''}`.trim() : 'User';
 
       const todayStr = new Date().toISOString().split('T')[0];
+      const kuaName = await getKuaInstansi();
 
       let replyText = '';
       let inlineKeyboard: any = null;
 
       if (text.startsWith('/start')) {
-        replyText = `<b>Selamat Datang di Bot Laporan Kinerja KUA Ampelgading</b> 🏛️\n\n` +
+        replyText = `<b>Selamat Datang di Bot Laporan Kinerja ${kuaName}</b>\n\n` +
           `Bot ini membantu Anda memantau data harian KUA, log kinerja staf, dokumen, dan rekapitulasi.\n\n` +
           `<b>Perintah yang tersedia:</b>\n` +
           `/today - Rekap Laporan KUA Hari Ini\n` +
@@ -98,7 +99,7 @@ router.post('/webhook', async (req: Request, res: Response) => {
         }
       } else if (text.startsWith('/upcoming')) {
         replyText = `<b>JADWAL PERISTIWA NIKAH & KEGIATAN MENDATANG</b>\n\n` +
-          `1. <b>Akad Nikah Luar Kantor</b> - Desa Ampelgading (10:00 WIB)\n` +
+          `1. <b>Akad Nikah Luar Kantor</b> - ${kuaName} (10:00 WIB)\n` +
           `2. <b>Bimbingan Perkawinan Remaja</b> - Aula KUA (13:00 WIB)\n` +
           `3. <b>Pemeriksaan Calon Pengantin</b> - R. Penghulu (14:30 WIB)`;
       } else if (text.startsWith('/kendaraan')) {
@@ -156,6 +157,7 @@ router.post('/simulate', async (req: Request, res: Response) => {
     const targetChatId = chatId || '123456789';
 
     const text = command;
+    const kuaName = await getKuaInstansi();
     let responseMsg = '';
 
     if (text.startsWith('/today')) {
@@ -175,7 +177,7 @@ router.post('/simulate', async (req: Request, res: Response) => {
     } else if (text.startsWith('/pembayaran')) {
       responseMsg = `Rekap Tukin: Tukin Bersih Rp 4.365.250 (Grade 8), Uang Makan Rp 726.000.`;
     } else {
-      responseMsg = `Bot KUA Ampelgading siap melayani perintah /start, /today, /upcoming, /kendaraan, /dokumen, /pembayaran.`;
+      responseMsg = `Bot ${kuaName} siap melayani perintah /start, /today, /upcoming, /kendaraan, /dokumen, /pembayaran.`;
     }
 
     await db.addTelegramLog({

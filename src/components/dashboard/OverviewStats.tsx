@@ -20,6 +20,7 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
   const [dailyData, setDailyData] = useState<KuaDailyData[]>([]);
   const [activities, setActivities] = useState<StaffActivity[]>([]);
   const [loading, setLoading] = useState(true);
+  const [kuaName, setKuaName] = useState('KUA Ampelgading');
 
   const currentMonth = 7; // July 2026
   const currentYear = 2026;
@@ -27,11 +28,14 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
   useEffect(() => {
     const fetchData = async () => {
       try {
-        const [resDaily, resAct] = await Promise.all([
+        const [resDaily, resAct, resSettings] = await Promise.all([
           fetch(`/api/kua-daily?month=${currentMonth}&year=${currentYear}`, {
             headers: { 'Authorization': `Bearer ${token}` }
           }),
           fetch(`/api/staff-activities?month=${currentMonth}&year=${currentYear}`, {
+            headers: { 'Authorization': `Bearer ${token}` }
+          }),
+          fetch(`/api/settings`, {
             headers: { 'Authorization': `Bearer ${token}` }
           })
         ]);
@@ -43,6 +47,10 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
         if (resAct.ok) {
           const a = await resAct.json();
           setActivities(a.activities || []);
+        }
+        if (resSettings.ok) {
+          const s = await resSettings.json();
+          if (s.settings?.kua_instansi) setKuaName(s.settings.kua_instansi);
         }
       } catch (err) {
         console.error('Failed to load overview statistics:', err);
@@ -71,7 +79,7 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
         <div className="relative z-10 space-y-2">
           <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-white/10 backdrop-blur-md text-xs font-medium text-emerald-100 border border-white/15">
             <Building className="w-3.5 h-3.5 text-emerald-300" />
-            <span>KUA Ampelgading — Periode Juli 2026</span>
+            <span>{kuaName} — Periode Juli 2026</span>
           </div>
           <h2 className="text-2xl sm:text-3xl font-bold tracking-tight">
             Selamat Datang, {user?.nama}!

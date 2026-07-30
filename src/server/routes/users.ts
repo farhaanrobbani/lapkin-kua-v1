@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { db } from '../db/database';
+import { db, getKuaInstansi } from '../db/database';
 import { authMiddleware, requireAdmin, AuthRequest } from '../middleware/auth';
 
 const router = Router();
@@ -34,6 +34,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'Email sudah digunakan.' });
     }
 
+    const defaultInstansi = await getKuaInstansi();
     const user = await db.createUser(
       {
         id: '',
@@ -51,7 +52,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         gapok: Number(gapok) || 0,
         foto_profil_url: foto_profil_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         tanda_tangan_url: tanda_tangan_url || '',
-        instansi: instansi || 'KUA Ampelgading'
+        instansi: instansi || defaultInstansi
       },
       password
     );

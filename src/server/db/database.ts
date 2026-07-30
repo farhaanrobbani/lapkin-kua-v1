@@ -40,6 +40,15 @@ async function ensureReady() {
     )
   `);
 
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS app_settings (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      key VARCHAR(255) UNIQUE NOT NULL,
+      value TEXT NOT NULL,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
   const result = await pool.query('SELECT COUNT(*)::int as cnt FROM users');
   if (result.rows[0].cnt === 0) {
     await seedData();
@@ -66,6 +75,11 @@ async function seedData() {
     INSERT INTO pejabat_penilai (id, nama, nip, jabatan, stempel_url, tanda_tangan_url) VALUES
     ($1, 'Mohamad Amin, S.HI', '197203102001121001', 'Kepala KUA Ampelgading', 'https://upload.wikimedia.org/wikipedia/commons/2/23/Official_stamp_placeholder.png', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300')
   `, [PEJABAT_ID]);
+
+  await pool.query(`
+    INSERT INTO app_settings (key, value) VALUES ('kua_instansi', 'KUA Ampelgading')
+    ON CONFLICT (key) DO NOTHING
+  `);
 
   const year = 2026;
   const month = 7;
@@ -247,6 +261,7 @@ export const db = {
     await ensureReady();
     const passwordHash = bcrypt.hashSync(passwordRaw, 10);
     const id = user.id || undefined;
+    const defaultInstansi = await getKuaInstansi();
     const result = await pool.query(`
       INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi)
       VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
@@ -257,7 +272,7 @@ export const db = {
       user.pangkat || 'Penata Muda', user.ruang_golongan || 'III/a',
       user.grade_tukin || 8, user.jumlah_tukin_kotor || 0, user.jumlah_tukin_bersih || 0,
       user.gapok || 0, user.foto_profil_url || '', user.tanda_tangan_url || '',
-      user.instansi || 'KUA Ampelgading',
+      user.instansi || defaultInstansi,
     ]);
     return rowToUser(result.rows[0]);
   },
@@ -528,8 +543,37 @@ export const db = {
     );
     return result.rowCount !== null && result.rowCount > 0;
   },
+
+  async getSettings(): Promise<Record<string, string>> {
+    await ensureReady();
+    const result = await pool.query('SELECT key, value FROM app_settings');
+    const settings: Record<string, string> = {};
+    result.rows.forEach(r => { settings[r.key] = r.value; });
+    return settings;
+  },
+
+  async updateSetting(key: string, value: string): Promise<void> {
+    await ensureReady();
+    await pool.query(`
+      INSERT INTO app_settings (key, value) VALUES ($1, $2)
+      ON CONFLICT (key) DO UPDATE SET value = $2, updated_at = CURRENT_TIMESTAMP
+    `, [key, value]);
+  },
+
+  async getKuaInstansi(): Promise<string> {
+    await ensureReady();
+    try {
+      const result = await pool.query("SELECT value FROM app_settings WHERE key = 'kua_instansi'");
+      if (result.rows.length > 0 && result.rows[0].value) return result.rows[0].value;
+    } catch {}
+    return 'KUA Ampelgading';
+  },
 };
 
 export async function initDatabase() {
   await ensureReady();
+}
+
+export async function getKuaInstansi(): Promise<string> {
+  return db.getKuaInstansi();
 }

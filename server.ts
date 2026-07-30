@@ -11,6 +11,7 @@ import pejabatPenilaiRoutes from './src/server/routes/pejabatPenilai';
 import telegramRoutes from './src/server/routes/telegram';
 import exportRoutes from './src/server/routes/export';
 import userTemplateRoutes from './src/server/routes/userTemplates';
+import settingsRoutes from './src/server/routes/settings';
 
 async function startServer() {
   await initDatabase();
@@ -34,6 +35,7 @@ async function startServer() {
   app.use('/api/telegram', telegramRoutes);
   app.use('/api/export', exportRoutes);
   app.use('/api/user-templates', userTemplateRoutes);
+  app.use('/api/settings', settingsRoutes);
 
   // Vite middleware in development
   if (process.env.NODE_ENV !== 'production') {
