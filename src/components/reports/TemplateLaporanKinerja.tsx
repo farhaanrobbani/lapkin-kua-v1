@@ -194,15 +194,17 @@ export const TemplateLaporanKinerja: React.FC<Props> = ({
           <p className="font-semibold">Pejabat Penilai,</p>
           <p className="font-bold">{pejabatPenilai.jabatan}</p>
           
-          <div className="h-20 my-2"></div>
+          <div className={pejabatPenilai.opsi_anchor_ttd ? "h-16 my-1" : "h-20 my-2"}></div>
 
+          {pejabatPenilai.opsi_anchor_ttd && (
+            <p className="font-bold text-xs">{pejabatPenilai.opsi_anchor_ttd}</p>
+          )}
           <p className="font-bold underline text-sm">{pejabatPenilai.nama}</p>
           <p className="text-[11px] text-slate-700">NIP. {pejabatPenilai.nip}</p>
         </div>
 
         {/* Right: Pegawai yang Dinilai */}
         <div className="space-y-1 flex flex-col items-center">
-          <p className="font-semibold">{displayCetakDate}</p>
           <p className="font-bold">Pegawai yang Dinilai,</p>
 
           <div className="h-20 my-2"></div>

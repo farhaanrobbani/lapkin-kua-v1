@@ -26,7 +26,7 @@ export const TemplateRekapTukin: React.FC<Props> = ({
   const monthName = getNamaBulan(month);
   const lastDayOfMonth = new Date(year, month, 0).getDate();
   const signatureDateStr = `${lastDayOfMonth} ${monthName} ${year}`;
-  const displayCetakDate = `Malang, ${signatureDateStr}`;
+  const displayCetakDate = customCetakDate || `Malang, ${signatureDateStr}`;
   
   // Rate uang makan per hari = Rp 35.150
   const nominalUangMakan = totalHariKerja * 35150;
@@ -73,9 +73,9 @@ export const TemplateRekapTukin: React.FC<Props> = ({
             <span className="font-bold text-emerald-800">Grade {user.grade_tukin}</span>
           </div>
           <div className="flex">
-            <span className="w-36 font-semibold text-slate-700">Nilai Tukin (Bersih)</span>
+            <span className="w-36 font-semibold text-slate-700">Nilai Tukin Kotor</span>
             <span className="w-4 font-semibold">:</span>
-            <span className="font-extrabold text-slate-900">{formatRupiah(user.jumlah_tukin_bersih)}</span>
+            <span className="font-extrabold text-slate-900">{formatRupiah(user.jumlah_tukin_kotor)}</span>
           </div>
         </div>
 
@@ -110,7 +110,7 @@ export const TemplateRekapTukin: React.FC<Props> = ({
                 Ada
               </td>
               <td className="border border-slate-900 p-2.5 font-bold text-slate-900">
-                {formatRupiah(user.jumlah_tukin_bersih)}
+                {formatRupiah(user.jumlah_tukin_kotor)}
               </td>
             </tr>
 
@@ -163,8 +163,11 @@ export const TemplateRekapTukin: React.FC<Props> = ({
           <p className="font-semibold">Mengetahui Kepala KUA,</p>
           <p className="font-bold">{pejabatPenilai.jabatan}</p>
 
-          <div className="h-20 my-2"></div>
+          <div className={pejabatPenilai.opsi_anchor_ttd ? "h-16 my-1" : "h-20 my-2"}></div>
 
+          {pejabatPenilai.opsi_anchor_ttd && (
+            <p className="font-bold text-xs">{pejabatPenilai.opsi_anchor_ttd}</p>
+          )}
           <p className="font-bold underline text-sm">{pejabatPenilai.nama}</p>
           <p className="text-[11px] text-slate-700">NIP. {pejabatPenilai.nip}</p>
         </div>

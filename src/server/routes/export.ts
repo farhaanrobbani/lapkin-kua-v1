@@ -195,9 +195,10 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
                 children: [
                   new Paragraph({ children: [new TextRun({ text: 'Pejabat Penilai,', font: FONT, size: 20 })] }),
                   new Paragraph({
-                    spacing: { before: 0, after: 1200 },
+                    spacing: { before: 0, after: pejabatPenilai.opsi_anchor_ttd ? 900 : 1200 },
                     children: [new TextRun({ text: '', font: FONT, size: 1 })]
                   }),
+                  ...(pejabatPenilai.opsi_anchor_ttd ? [new Paragraph({ spacing: { before: 0, after: 0 }, children: [new TextRun({ text: pejabatPenilai.opsi_anchor_ttd, bold: true, font: FONT, size: 22 })] })] : []),
                   new Paragraph({ children: [new TextRun({ text: pejabatPenilai.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
                   new Paragraph({ children: [new TextRun({ text: `NIP. ${pejabatPenilai.nip}`, font: FONT, size: 18 })] }),
                 ]
@@ -251,7 +252,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
         ['Jabatan', user.jabatan],
         ['Instansi', kuaInstansi],
         ['Grade Tukin', `Grade ${user.grade_tukin}`],
-        ['Nilai Tukin Bersih', formatRupiah(user.jumlah_tukin_bersih)],
+        ['Nilai Tukin Kotor', formatRupiah(user.jumlah_tukin_kotor)],
       ].map(([label, val]) => new TableRow({
         children: [
           new TableCell({ width: { size: 30, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [new Paragraph({ children: [new TextRun({ text: label, bold: true, font: FONT, size: 20 })] })] }),
@@ -303,7 +304,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
             new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '1', font: FONT, size: 20 })] })] }),
             new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Tunjangan Kinerja', bold: true, font: FONT, size: 20 })] })] }),
             new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(user.jumlah_tukin_bersih), bold: true, font: FONT, size: 20 })] })] }),
+            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(user.jumlah_tukin_kotor), bold: true, font: FONT, size: 20 })] })] }),
           ]
         }),
         new TableRow({
@@ -346,9 +347,10 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
                   new Paragraph({ children: [new TextRun({ text: 'Mengetahui,', font: FONT, size: 20 })] }),
                   new Paragraph({ children: [new TextRun({ text: pejabatPenilai.jabatan, font: FONT, size: 20 })] }),
                   new Paragraph({
-                    spacing: { before: 0, after: 1200 },
+                    spacing: { before: 0, after: pejabatPenilai.opsi_anchor_ttd ? 900 : 1200 },
                     children: [new TextRun({ text: '', font: FONT, size: 1 })]
                   }),
+                  ...(pejabatPenilai.opsi_anchor_ttd ? [new Paragraph({ spacing: { before: 0, after: 0 }, children: [new TextRun({ text: pejabatPenilai.opsi_anchor_ttd, bold: true, font: FONT, size: 22 })] })] : []),
                   new Paragraph({ children: [new TextRun({ text: pejabatPenilai.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
                   new Paragraph({ children: [new TextRun({ text: `NIP. ${pejabatPenilai.nip}`, font: FONT, size: 18 })] }),
                 ]
@@ -585,9 +587,16 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       let sx = margin;
       doc.setFont('Helvetica', 'normal');
       doc.text('Pejabat Penilai,', sx, sigBase);
+      const t1NamaY = sigBase + 22;
+      if (pejabatPenilai.opsi_anchor_ttd) {
+        doc.setFontSize(10);
+        doc.setFont('Helvetica', 'bold');
+        doc.text(pejabatPenilai.opsi_anchor_ttd, sx, t1NamaY - 9);
+      }
+      doc.setFontSize(10);
       doc.setFont('Helvetica', 'bold');
-      doc.text(pejabatPenilai.nama, sx, sigBase + 22);
-      doc.text('NIP. ' + pejabatPenilai.nip, sx, sigBase + 22 + PDF_LH);
+      doc.text(pejabatPenilai.nama, sx, t1NamaY);
+      doc.text('NIP. ' + pejabatPenilai.nip, sx, t1NamaY + PDF_LH);
 
       const rx = margin + sigW;
       doc.setFont('Helvetica', 'normal');
@@ -621,7 +630,7 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       const meta: [string, string][] = [
         ['Nama', user.nama], ['NIP', user.nip], ['Jabatan', user.jabatan],
         ['Instansi', kuaInstansi], ['Grade Tukin', `Grade ${user.grade_tukin}`],
-        ['Nilai Tukin (Bersih)', formatRupiah(user.jumlah_tukin_bersih)],
+        ['Nilai Tukin Kotor', formatRupiah(user.jumlah_tukin_kotor)],
       ];
       const labelW = 42;
       const photoW = 28;
@@ -649,7 +658,7 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       // Data Table
       const headers = ['NO', 'URAIAN', 'ADA / TIDAK ADA', 'KETERANGAN'];
       const body: string[][] = [
-        ['1', 'Rekap Tunjangan Kinerja', 'Ada', formatRupiah(user.jumlah_tukin_bersih)],
+        ['1', 'Rekap Tunjangan Kinerja', 'Ada', formatRupiah(user.jumlah_tukin_kotor)],
         ['2', 'Rekap Kehadiran', 'Ada', `${totalHariKerja} Hari`],
         ['3', 'Rekap Uang Makan', 'Ada', formatRupiah(nominalUangMakan)],
         ['4', 'Laporan Kinerja', 'Ada', '1 Laporan'],
@@ -669,9 +678,16 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       doc.text('Mengetahui,', sx, sigBase);
       doc.setFont('Helvetica', 'normal');
       doc.text(pejabatPenilai.jabatan, sx, sigBase + leftGapBase);
+      const t2NamaY = sigBase + leftGapBase + 22;
+      if (pejabatPenilai.opsi_anchor_ttd) {
+        doc.setFontSize(10);
+        doc.setFont('Helvetica', 'bold');
+        doc.text(pejabatPenilai.opsi_anchor_ttd, sx, t2NamaY - 9);
+      }
+      doc.setFontSize(10);
       doc.setFont('Helvetica', 'bold');
-      doc.text(pejabatPenilai.nama, sx, sigBase + leftGapBase + 22);
-      doc.text('NIP. ' + pejabatPenilai.nip, sx, sigBase + leftGapBase + 22 + PDF_LH);
+      doc.text(pejabatPenilai.nama, sx, t2NamaY);
+      doc.text('NIP. ' + pejabatPenilai.nip, sx, t2NamaY + PDF_LH);
 
       const rx = margin + sigW;
       doc.setFont('Helvetica', 'normal');

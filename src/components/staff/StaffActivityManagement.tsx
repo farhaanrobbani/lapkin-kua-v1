@@ -180,18 +180,17 @@ export const StaffActivityManagement: React.FC<Props> = ({ showToast }) => {
             const qty = data && typeof (data as any)[col.key] === 'number' ? Number((data as any)[col.key]) : 0;
             if (qty > 0) {
               const userTemplate = userTemplatesMap[col.key];
-              const defaultDesc = userTemplate && userTemplate.pekerjaan
-                ? { label: col.label, pekerjaan: userTemplate.pekerjaan }
-                : (DEFAULT_DESCRIPTIONS[col.key] || {
-                    label: col.label,
-                    pekerjaan: `Melaksanakan pelayanan dan pencatatan ${col.label.toLowerCase()}`
-                  });
+              const hasTemplate = userTemplate && userTemplate.pekerjaan.trim().length > 0;
+              const kegiatan = userTemplate?.kegiatan?.trim() ? userTemplate.kegiatan : col.label;
+              const pekerjaan = hasTemplate ? userTemplate.pekerjaan : (
+                DEFAULT_DESCRIPTIONS[col.key]?.pekerjaan || `Melaksanakan pelayanan dan pencatatan ${col.label.toLowerCase()}`
+              );
               selections.push({
                 tanggal: data.tanggal,
                 key: col.key,
                 field: col.key,
-                label: defaultDesc.label,
-                pekerjaan: defaultDesc.pekerjaan,
+                label: kegiatan,
+                pekerjaan,
                 total_jumlah: qty,
                 selected: true
               });

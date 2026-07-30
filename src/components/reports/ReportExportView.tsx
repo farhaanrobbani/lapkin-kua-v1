@@ -9,7 +9,6 @@ import {
   FileText,
   Download,
   FileCode2,
-  Printer,
 } from 'lucide-react';
 
 interface Props {
@@ -111,43 +110,6 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
     }
   };
 
-  const handlePrintDirect = () => {
-    const containerId = activeTemplate === 'template1' ? 'template-laporan-kinerja' : 'template-rekap-tukin';
-    const el = document.getElementById(containerId);
-    if (!el) return;
-
-    const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
-    let stylesHtml = '';
-    styles.forEach(s => {
-      if (s.tagName === 'STYLE') stylesHtml += s.outerHTML;
-      else if (s.tagName === 'LINK') stylesHtml += s.outerHTML;
-    });
-
-    const printWindow = window.open('', '_blank');
-    if (!printWindow) return;
-    printWindow.document.write(`
-      <!DOCTYPE html>
-      <html>
-      <head>
-        <title>Cetak Laporan</title>
-        ${stylesHtml}
-        <style>
-          html, body { margin: 0; padding: 0; background: white; color: black; }
-          body { padding: 15mm; }
-          * { box-shadow: none !important; }
-          .dark * { background: white !important; color: black !important; }
-          @page { margin: 15mm; }
-          img { max-width: 100%; }
-        </style>
-      </head>
-      <body>${el.outerHTML}</body>
-      </html>
-    `);
-    printWindow.document.close();
-    printWindow.focus();
-    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
-  };
-
   const handleExportWord = async () => {
     if (!targetUser || !pejabatPenilai) return;
     showToast('info', 'Mengunduh berkas Word (.docx)...');
@@ -196,13 +158,6 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
             <span>Ekspor Word (.docx)</span>
           </button>
 
-          <button
-            onClick={handlePrintDirect}
-            className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-all"
-          >
-            <Printer className="w-3.5 h-3.5" />
-            <span>Cetak Direct</span>
-          </button>
         </div>
       </div>
 

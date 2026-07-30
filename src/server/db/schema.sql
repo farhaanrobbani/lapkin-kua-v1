@@ -66,6 +66,7 @@ CREATE TABLE IF NOT EXISTS pejabat_penilai (
     jabatan VARCHAR(255) NOT NULL,
     stempel_url TEXT,
     tanda_tangan_url TEXT,
+    opsi_anchor_ttd VARCHAR(10) DEFAULT '',
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 

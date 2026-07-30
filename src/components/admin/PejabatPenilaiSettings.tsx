@@ -137,6 +137,42 @@ export const PejabatPenilaiSettings: React.FC<Props> = ({ showToast }) => {
             </div>
           </div>
 
+          {/* Opsi Anchor Tanda Tangan */}
+          <div className="pt-4 border-t border-slate-100 dark:border-slate-800">
+            <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-2">
+              Anchor Tanda Tangan (Posisi di Atas Nama)
+            </label>
+            <div className="flex items-center space-x-4">
+              {[
+                { value: '#', label: '#' },
+                { value: '^', label: '^ (Caret)' },
+              ].map(opt => (
+                <label key={opt.value} className="flex items-center space-x-2 cursor-pointer">
+                  <input
+                    type="radio"
+                    name="opsi_anchor_ttd"
+                    value={opt.value}
+                    checked={data.opsi_anchor_ttd === opt.value}
+                    onChange={e => setData({ ...data, opsi_anchor_ttd: e.target.value })}
+                    className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                  />
+                  <span className="text-sm font-semibold text-slate-800 dark:text-slate-200">{opt.label}</span>
+                </label>
+              ))}
+              <label className="flex items-center space-x-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="opsi_anchor_ttd"
+                  value=""
+                  checked={!data.opsi_anchor_ttd}
+                  onChange={e => setData({ ...data, opsi_anchor_ttd: '' })}
+                  className="w-4 h-4 text-emerald-600 border-slate-300 focus:ring-emerald-500"
+                />
+                <span className="text-sm text-slate-500 dark:text-slate-400">Tanpa Anchor</span>
+              </label>
+            </div>
+          </div>
+
           <div className="pt-4 border-t border-slate-100 dark:border-slate-800 flex justify-end">
             <button
               type="submit"

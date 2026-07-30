@@ -49,6 +49,14 @@ async function ensureReady() {
     )
   `);
 
+  await pool.query(`
+    ALTER TABLE kua_daily_data ADD COLUMN IF NOT EXISTS custom_fields JSONB DEFAULT '{}'::jsonb
+  `);
+
+  await pool.query(`
+    ALTER TABLE pejabat_penilai ADD COLUMN IF NOT EXISTS opsi_anchor_ttd VARCHAR(10) DEFAULT ''
+  `);
+
   const result = await pool.query('SELECT COUNT(*)::int as cnt FROM users');
   if (result.rows[0].cnt === 0) {
     await seedData();
@@ -72,8 +80,8 @@ async function seedData() {
   `, [ADMIN_ID, adminPasswordHash, STAF_ID, stafPasswordHash]);
 
   await pool.query(`
-    INSERT INTO pejabat_penilai (id, nama, nip, jabatan, stempel_url, tanda_tangan_url) VALUES
-    ($1, 'Mohamad Amin, S.HI', '197203102001121001', 'Kepala KUA Ampelgading', 'https://upload.wikimedia.org/wikipedia/commons/2/23/Official_stamp_placeholder.png', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300')
+    INSERT INTO pejabat_penilai (id, nama, nip, jabatan, stempel_url, tanda_tangan_url, opsi_anchor_ttd) VALUES
+    ($1, 'Mohamad Amin, S.HI', '197203102001121001', 'Kepala KUA Ampelgading', 'https://upload.wikimedia.org/wikipedia/commons/2/23/Official_stamp_placeholder.png', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', '#')
   `, [PEJABAT_ID]);
 
   await pool.query(`
@@ -160,6 +168,7 @@ function rowToUser(row: any, includePassword = false): User {
 }
 
 function rowToKuaDaily(row: any): KuaDailyData {
+  const customFields = (row.custom_fields && typeof row.custom_fields === 'object') ? row.custom_fields : {};
   return {
     id: row.id,
     tanggal: row.tanggal ? row.tanggal.toISOString ? row.tanggal.toISOString().split('T')[0] : String(row.tanggal) : '',
@@ -173,6 +182,7 @@ function rowToKuaDaily(row: any): KuaDailyData {
     legalisir_buku_nikah: row.legalisir_buku_nikah || 0,
     surat_keluar: row.surat_keluar || 0,
     pelaksanaan_wakaf: row.pelaksanaan_wakaf || 0,
+    ...customFields,
     created_by: row.created_by,
     created_at: row.created_at,
     updated_at: row.updated_at,
@@ -200,6 +210,7 @@ function rowToPejabatPenilai(row: any): PejabatPenilai {
     jabatan: row.jabatan,
     stempel_url: row.stempel_url || '',
     tanda_tangan_url: row.tanda_tangan_url || '',
+    opsi_anchor_ttd: row.opsi_anchor_ttd || '',
     updated_at: row.updated_at,
   };
 }
@@ -342,13 +353,21 @@ export const db = {
     fields.created_by = data.created_by || null;
     fields.updated_at = now;
 
+    const systemFields = new Set(['id', 'tanggal', 'created_by', 'created_at', 'updated_at', ...KUA_DAILY_FIELDS]);
+    const customFields: Record<string, any> = {};
+    for (const [key, val] of Object.entries(data)) {
+      if (!systemFields.has(key)) {
+        customFields[key] = typeof val === 'number' ? val : (Number(val) || 0);
+      }
+    }
+
     const setFragments: string[] = [];
     const setValues: any[] = [];
     let idx = 1;
 
-    for (const key of [...KUA_DAILY_FIELDS, 'created_by', 'updated_at']) {
+    for (const key of [...KUA_DAILY_FIELDS, 'custom_fields', 'created_by', 'updated_at']) {
       setFragments.push(`${key}=$${idx}`);
-      setValues.push(fields[key]);
+      setValues.push(key === 'custom_fields' ? JSON.stringify(customFields) : fields[key]);
       idx++;
     }
     setValues.push(tanggal);
@@ -359,9 +378,9 @@ export const db = {
       `, setValues);
       return rowToKuaDaily(result.rows[0]);
     } else {
-      const insertFields = ['id', 'tanggal', ...KUA_DAILY_FIELDS, 'created_by', 'created_at', 'updated_at'];
-      const insertPlaceholders = ['gen_random_uuid()', '$1', ...KUA_DAILY_FIELDS.map((_, i) => `$${i + 2}`), `$${KUA_DAILY_FIELDS.length + 2}`, `$${KUA_DAILY_FIELDS.length + 3}`, `$${KUA_DAILY_FIELDS.length + 4}`];
-      const insertValues = [tanggal, ...KUA_DAILY_FIELDS.map(k => fields[k]), fields.created_by, now, now];
+      const insertFields = ['id', 'tanggal', ...KUA_DAILY_FIELDS, 'custom_fields', 'created_by', 'created_at', 'updated_at'];
+      const insertPlaceholders = ['gen_random_uuid()', '$1', ...KUA_DAILY_FIELDS.map((_, i) => `$${i + 2}`), `$${KUA_DAILY_FIELDS.length + 2}`, `$${KUA_DAILY_FIELDS.length + 3}`, `$${KUA_DAILY_FIELDS.length + 4}`, `$${KUA_DAILY_FIELDS.length + 5}`];
+      const insertValues = [tanggal, ...KUA_DAILY_FIELDS.map(k => fields[k]), JSON.stringify(customFields), fields.created_by, now, now];
       const result = await pool.query(`
         INSERT INTO kua_daily_data (${insertFields.join(', ')}) VALUES (${insertPlaceholders.join(', ')}) RETURNING *
       `, insertValues);
@@ -434,6 +453,7 @@ export const db = {
         jabatan: '',
         stempel_url: '',
         tanda_tangan_url: '',
+        opsi_anchor_ttd: '',
         updated_at: '',
       };
     }
@@ -448,15 +468,15 @@ export const db = {
     if (existing.rows.length > 0) {
       const merged = { ...existing.rows[0], ...updates, updated_at: now };
       const result = await pool.query(`
-        UPDATE pejabat_penilai SET nama=$1, nip=$2, jabatan=$3, stempel_url=$4, tanda_tangan_url=$5, updated_at=$6
-        WHERE id=$7 RETURNING *
-      `, [merged.nama, merged.nip, merged.jabatan, merged.stempel_url || '', merged.tanda_tangan_url || '', now, existing.rows[0].id]);
+        UPDATE pejabat_penilai SET nama=$1, nip=$2, jabatan=$3, stempel_url=$4, tanda_tangan_url=$5, opsi_anchor_ttd=$6, updated_at=$7
+        WHERE id=$8 RETURNING *
+      `, [merged.nama, merged.nip, merged.jabatan, merged.stempel_url || '', merged.tanda_tangan_url || '', merged.opsi_anchor_ttd || '', now, existing.rows[0].id]);
       return rowToPejabatPenilai(result.rows[0]);
     } else {
       const result = await pool.query(`
-        INSERT INTO pejabat_penilai (nama, nip, jabatan, stempel_url, tanda_tangan_url, updated_at)
-        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
-      `, [updates.nama, updates.nip, updates.jabatan, updates.stempel_url || '', updates.tanda_tangan_url || '', now]);
+        INSERT INTO pejabat_penilai (nama, nip, jabatan, stempel_url, tanda_tangan_url, opsi_anchor_ttd, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6, $7) RETURNING *
+      `, [updates.nama, updates.nip, updates.jabatan, updates.stempel_url || '', updates.tanda_tangan_url || '', updates.opsi_anchor_ttd || '', now]);
       return rowToPejabatPenilai(result.rows[0]);
     }
   },

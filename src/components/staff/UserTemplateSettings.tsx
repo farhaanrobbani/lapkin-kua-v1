@@ -20,6 +20,7 @@ interface Props {
 interface TemplateForm {
   activity_type_key: string;
   masterLabel: string;
+  kegiatan: string;
   pekerjaan: string;
 }
 
@@ -57,6 +58,7 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
         const forms: TemplateForm[] = masterColumns.map(col => ({
           activity_type_key: col.key,
           masterLabel: col.label,
+          kegiatan: map[col.key]?.kegiatan || col.label,
           pekerjaan: map[col.key]?.pekerjaan || ''
         }));
         setTemplates(forms);
@@ -69,9 +71,9 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
   };
 
   const handleSave = async () => {
-    const filled = templates.filter(t => t.pekerjaan.trim().length > 0);
+    const filled = templates.filter(t => t.kegiatan.trim().length > 0 && t.pekerjaan.trim().length > 0);
     if (filled.length === 0) {
-      showToast('error', 'Isi minimal satu rincian uraian pekerjaan untuk disimpan.');
+      showToast('error', 'Isi minimal satu judul tema kegiatan dan rincian uraian pekerjaan untuk disimpan.');
       return;
     }
 
@@ -86,7 +88,7 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
         body: JSON.stringify({
           templates: filled.map(t => ({
             activity_type_key: t.activity_type_key,
-            kegiatan: t.masterLabel,
+            kegiatan: t.kegiatan,
             pekerjaan: t.pekerjaan
           }))
         })
@@ -111,6 +113,14 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
     } finally {
       setSaving(false);
     }
+  };
+
+  const updateKegiatan = (index: number, value: string) => {
+    setTemplates(prev => {
+      const updated = [...prev];
+      updated[index] = { ...updated[index], kegiatan: value };
+      return updated;
+    });
   };
 
   const updatePekerjaan = (index: number, value: string) => {
@@ -175,17 +185,31 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
                       </div>
                     </div>
 
-                    <div className="ml-7">
-                      <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
-                        Rincian Uraian Pekerjaan (Template) <span className="text-rose-500">*</span>
-                      </label>
-                      <textarea
-                        rows={2}
-                        value={tpl.pekerjaan}
-                        onChange={e => updatePekerjaan(index, e.target.value)}
-                        placeholder="Tulis kalimat default rincian pekerjaan Anda di sini..."
-                        className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none"
-                      />
+                    <div className="ml-7 space-y-3">
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Judul Tema Kegiatan (Custom) <span className="text-rose-500">*</span>
+                        </label>
+                        <input
+                          type="text"
+                          value={tpl.kegiatan}
+                          onChange={e => updateKegiatan(index, e.target.value)}
+                          placeholder="Tulis judul tema kegiatan custom Anda..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-[11px] font-semibold text-slate-600 dark:text-slate-400 mb-1">
+                          Rincian Uraian Pekerjaan (Template) <span className="text-rose-500">*</span>
+                        </label>
+                        <textarea
+                          rows={2}
+                          value={tpl.pekerjaan}
+                          onChange={e => updatePekerjaan(index, e.target.value)}
+                          placeholder="Tulis kalimat default rincian pekerjaan Anda di sini..."
+                          className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-white dark:bg-slate-900 text-slate-900 dark:text-white text-xs outline-none"
+                        />
+                      </div>
                       {tpl.pekerjaan.trim().length > 0 && (
                         <p className="text-[10px] text-emerald-600 dark:text-emerald-400 mt-1 flex items-center space-x-1">
                           <CheckCircle2 className="w-3 h-3" />

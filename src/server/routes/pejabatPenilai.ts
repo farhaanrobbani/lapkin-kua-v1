@@ -16,7 +16,7 @@ router.get('/', authMiddleware, async (req: Request, res: Response) => {
 
 router.put('/', authMiddleware, requireAdmin, async (req: AuthRequest, res: Response) => {
   try {
-    const { nama, nip, jabatan, stempel_url, tanda_tangan_url } = req.body;
+    const { nama, nip, jabatan, stempel_url, tanda_tangan_url, opsi_anchor_ttd } = req.body;
     if (!nama || !nip || !jabatan) {
       return res.status(400).json({ error: 'Nama, NIP, dan Jabatan Pejabat Penilai wajib diisi.' });
     }
@@ -26,7 +26,8 @@ router.put('/', authMiddleware, requireAdmin, async (req: AuthRequest, res: Resp
       nip,
       jabatan,
       stempel_url: stempel_url || '',
-      tanda_tangan_url: tanda_tangan_url || ''
+      tanda_tangan_url: tanda_tangan_url || '',
+      opsi_anchor_ttd: opsi_anchor_ttd || ''
     });
 
     return res.json({ pejabatPenilai: updated, message: 'Data Pejabat Penilai berhasil diperbarui.' });

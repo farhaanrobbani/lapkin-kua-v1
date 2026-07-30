@@ -7,8 +7,6 @@ import {
   Users,
   Award,
   FileText,
-  Bot,
-  Terminal,
   UserCheck,
   Settings
 } from 'lucide-react';
@@ -92,18 +90,6 @@ export const Sidebar: React.FC<SidebarProps> = ({ activeTab, setActiveTab }) => 
       roles: ['admin'],
       badge: 'Admin'
     },
-    {
-      id: 'telegram',
-      label: 'Integrasi Telegram Bot',
-      icon: Bot,
-      roles: ['admin', 'staf']
-    },
-    {
-      id: 'deployment',
-      label: 'Panduan Deploy VPS',
-      icon: Terminal,
-      roles: ['admin', 'staf']
-    }
   ];
 
   return (
