@@ -1,6 +1,6 @@
 # Sistem Informasi Laporan Kinerja KUA (SILAP-KUA)
 
-Aplikasi web Sistem Informasi Laporan Kinerja KUA (Kantor Urusan Agama) terintegrasi untuk pengelola laporan KUA (Admin) dan Staf (Penghulu, JFU, PPNPN, Penyuluh).
+Aplikasi web Sistem Informasi Laporan Kinerja KUA (Kantor Urusan Agama) terintegrasi untuk pengelola laporan KUA (Admin) dan Staf.
 
 ## Fitur Utama
 
@@ -48,7 +48,7 @@ npm install
 npm run dev
 ```
 
-Aplikasi dapat diakses di `http://localhost:3000`.
+Aplikasi dapat diakses di `http://localhost:7000`.
 
 ---
 
