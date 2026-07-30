@@ -1,440 +1,535 @@
-import fs from 'fs';
-import path from 'path';
+import pg from 'pg';
 import bcrypt from 'bcryptjs';
 import { User, KuaDailyData, StaffActivity, PejabatPenilai, TelegramLog, UserActivityTemplate, UserActivityTemplatesMap } from '../../types/index.js';
-import { query, isConnected, initializeSchema, seedInitialData } from './postgres.js';
 
-interface DatabaseData {
-  users: User[];
-  kuaDailyData: KuaDailyData[];
-  staffActivities: StaffActivity[];
-  pejabatPenilai: PejabatPenilai;
-  telegramLogs: TelegramLog[];
-  userActivityTemplates: UserActivityTemplate[];
+const pool = new pg.Pool({
+  connectionString: process.env.DATABASE_URL || 'postgres://kua_user:kua_password@postgres:5432/kua_db',
+  max: 20,
+  idleTimeoutMillis: 30000,
+});
+
+let ready = false;
+
+async function ensureReady() {
+  if (ready) return;
+
+  await pool.query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS telegram_logs (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      command TEXT NOT NULL,
+      chat_id TEXT NOT NULL,
+      user_name TEXT NOT NULL,
+      message TEXT NOT NULL,
+      status TEXT NOT NULL CHECK (status IN ('sent', 'received', 'failed')),
+      timestamp TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP
+    )
+  `);
+
+  await pool.query(`
+    CREATE TABLE IF NOT EXISTS user_activity_templates (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      activity_type_key TEXT NOT NULL,
+      kegiatan TEXT NOT NULL,
+      pekerjaan TEXT NOT NULL,
+      created_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMPTZ DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE(user_id, activity_type_key)
+    )
+  `);
+
+  const result = await pool.query('SELECT COUNT(*)::int as cnt FROM users');
+  if (result.rows[0].cnt === 0) {
+    await seedData();
+  }
+
+  ready = true;
 }
 
-const DB_PATH = path.join(process.cwd(), '.data', 'database.json');
-
-function ensureDataDirectory() {
-  const dir = path.dirname(DB_PATH);
-  if (!fs.existsSync(dir)) fs.mkdirSync(dir, { recursive: true });
-}
-
-function getInitialData(): DatabaseData {
+async function seedData() {
   const adminPasswordHash = bcrypt.hashSync('admin123', 10);
   const stafPasswordHash = bcrypt.hashSync('staf123', 10);
 
-  const adminUser: User = { id: 'usr-admin-001', email: 'admin@kua.go.id', role: 'admin', nama: 'H. Bambang Sugiarto, S.Ag', nip: '198005122008011012', jabatan: 'Pengelola Laporan KUA & Keuangan', level_jabatan: 'Pelaksana', pangkat: 'Penata Muda Tk. I', ruang_golongan: 'III/b', grade_tukin: 7, jumlah_tukin_kotor: 3915000, jumlah_tukin_bersih: 3719250, gapok: 3400000, foto_profil_url: 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', tanda_tangan_url: 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', instansi: 'KUA Ampelgading', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  const stafUser: User = { id: 'usr-staf-001', email: 'staf@kua.go.id', role: 'staf', nama: 'Ahmad Fauzi, S.HI', nip: '198808152014031002', jabatan: 'Penghulu Ahli Pertama', level_jabatan: 'Fungsional', pangkat: 'Penata Muda', ruang_golongan: 'III/a', grade_tukin: 8, jumlah_tukin_kotor: 4595000, jumlah_tukin_bersih: 4365250, gapok: 3600000, foto_profil_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', tanda_tangan_url: 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', instansi: 'KUA Ampelgading', created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-  const pejabatPenilai: PejabatPenilai = { id: 'pjb-001', nama: 'Mohamad Amin, S.HI', nip: '197203102001121001', jabatan: 'Kepala KUA Ampelgading', stempel_url: 'https://upload.wikimedia.org/wikipedia/commons/2/23/Official_stamp_placeholder.png', tanda_tangan_url: 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', opsi_anchor_ttd: '^', updated_at: new Date().toISOString() };
+  const ADMIN_ID = 'a0000000-0000-0000-0000-000000000001';
+  const STAF_ID = 'a0000000-0000-0000-0000-000000000002';
+  const PEJABAT_ID = 'a0000000-0000-0000-0000-000000000003';
 
-  const kuaDailyData: KuaDailyData[] = [];
-  const staffActivities: StaffActivity[] = [];
+  await pool.query(`
+    INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi) VALUES
+    ($1, 'admin@kua.go.id', $2, 'admin', 'H. Bambang Sugiarto, S.Ag', '198005122008011012', 'Pengelola Laporan KUA & Keuangan', 'Pelaksana', 'Penata Muda Tk. I', 'III/b', 7, 3915000, 3719250, 3400000, 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading'),
+    ($3, 'staf@kua.go.id', $4, 'staf', 'Ahmad Fauzi, S.HI', '198808152014031002', 'Penghulu Ahli Pertama', 'Fungsional', 'Penata Muda', 'III/a', 8, 4595000, 4365250, 3600000, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading')
+  `, [ADMIN_ID, adminPasswordHash, STAF_ID, stafPasswordHash]);
+
+  await pool.query(`
+    INSERT INTO pejabat_penilai (id, nama, nip, jabatan, stempel_url, tanda_tangan_url) VALUES
+    ($1, 'Mohamad Amin, S.HI', '197203102001121001', 'Kepala KUA Ampelgading', 'https://upload.wikimedia.org/wikipedia/commons/2/23/Official_stamp_placeholder.png', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300')
+  `, [PEJABAT_ID]);
+
+  const year = 2026;
+  const month = 7;
+
   for (let day = 1; day <= 28; day++) {
     const dayStr = day < 10 ? `0${day}` : `${day}`;
-    const tanggal = `2026-07-${dayStr}`;
-    const dateObj = new Date(2026, 6, day);
+    const tanggal = `${year}-07-${dayStr}`;
+    const dateObj = new Date(year, month - 1, day);
     if (dateObj.getDay() === 0 || dateObj.getDay() === 6) continue;
-    const d: KuaDailyData = { id: `kua-daily-${day}`, tanggal, pendaftaran_nikah_kantor: (day % 3 === 0) ? 2 : 1, pendaftaran_nikah_luar_kantor: (day % 2 === 0) ? 3 : 1, pelaksanaan_nikah_kantor: (day % 4 === 0) ? 1 : 0, pelaksanaan_nikah_luar_kantor: (day % 5 === 0) ? 2 : 1, pelaksanaan_bimwin: (day % 7 === 0) ? 12 : 0, duplikat_buku_nikah: (day % 6 === 0) ? 1 : 0, surat_rekomendasi_nikah: (day % 2 === 0) ? 2 : 1, legalisir_buku_nikah: (day % 3 === 0) ? 4 : 2, surat_keluar: (day % 2 === 0) ? 3 : 1, pelaksanaan_wakaf: (day % 10 === 0) ? 1 : 0, created_by: adminUser.id, created_at: new Date().toISOString(), updated_at: new Date().toISOString() };
-    kuaDailyData.push(d);
-    staffActivities.push({ id: `act-fauzi-${day}-1`, user_id: stafUser.id, tanggal, kegiatan: 'Pelaksanaan Pemeriksaan Calon Pengantin (Pemeriksaan Nikah)', pekerjaan: 'Memeriksa kelengkapan berkas pendaftaran nikah dan mewawancarai calon pengantin.', total_jumlah: d.pendaftaran_nikah_kantor! + d.pendaftaran_nikah_luar_kantor!, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    if (d.pelaksanaan_nikah_luar_kantor! > 0) staffActivities.push({ id: `act-fauzi-${day}-2`, user_id: stafUser.id, tanggal, kegiatan: 'Pelayanan dan Pengawasan Akad Nikah di Luar Kantor', pekerjaan: 'Menghadiri, memandu, dan memimpin akad nikah di lokasi bedol calon pengantin.', total_jumlah: d.pelaksanaan_nikah_luar_kantor!, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    staffActivities.push({ id: `act-admin-${day}-1`, user_id: adminUser.id, tanggal, kegiatan: 'Pengelolaan, Pencatatan, dan Pengiriman Surat Keluar', pekerjaan: 'Pengelolaan, pencatatan agenda surat dinas KUA, dan verifikasi dokumen keuangan.', total_jumlah: d.surat_keluar || 1, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
-    if (d.legalisir_buku_nikah! > 0) staffActivities.push({ id: `act-admin-${day}-2`, user_id: adminUser.id, tanggal, kegiatan: 'Pelayanan Legalisir Buku Nikah', pekerjaan: 'Pemeriksaan keaslian dokumen buku nikah dan verifikasi register akta nikah.', total_jumlah: d.legalisir_buku_nikah!, created_at: new Date().toISOString(), updated_at: new Date().toISOString() });
+
+    await pool.query(`
+      INSERT INTO kua_daily_data (tanggal, pendaftaran_nikah_kantor, pendaftaran_nikah_luar_kantor, pelaksanaan_nikah_kantor, pelaksanaan_nikah_luar_kantor, pelaksanaan_bimwin, duplikat_buku_nikah, surat_rekomendasi_nikah, legalisir_buku_nikah, surat_keluar, pelaksanaan_wakaf, created_by) VALUES
+      ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
+    `, [
+      tanggal,
+      day % 3 === 0 ? 2 : 1,
+      day % 2 === 0 ? 3 : 1,
+      day % 4 === 0 ? 1 : 0,
+      day % 5 === 0 ? 2 : 1,
+      day % 7 === 0 ? 12 : 0,
+      day % 6 === 0 ? 1 : 0,
+      day % 2 === 0 ? 2 : 1,
+      day % 3 === 0 ? 4 : 2,
+      day % 2 === 0 ? 3 : 1,
+      day % 10 === 0 ? 1 : 0,
+      ADMIN_ID
+    ]);
+
+    const totalPendaftaran = (day % 3 === 0 ? 2 : 1) + (day % 2 === 0 ? 3 : 1);
+    await pool.query(`
+      INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, total_jumlah) VALUES
+      ($1,$2,'Pelaksanaan Pemeriksaan Calon Pengantin (Pemeriksaan Nikah)','Memeriksa kelengkapan berkas pendaftaran nikah dan mewawancarai calon pengantin.',$3)
+    `, [STAF_ID, tanggal, totalPendaftaran]);
+
+    await pool.query(`
+      INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, total_jumlah) VALUES
+      ($1,$2,'Pelayanan dan Pengawasan Akad Nikah di Luar Kantor','Menghadiri, memandu, dan memimpin akad nikah di lokasi bedol calon pengantin.',$3)
+    `, [STAF_ID, tanggal, day % 5 === 0 ? 2 : 1]);
+
+    await pool.query(`
+      INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, total_jumlah) VALUES
+      ($1,$2,'Pengelolaan, Pencatatan, dan Pengiriman Surat Keluar','Pengelolaan, pencatatan agenda surat dinas KUA, dan verifikasi dokumen keuangan.',$3)
+    `, [ADMIN_ID, tanggal, day % 2 === 0 ? 3 : 1]);
+
+    const legalisirCount = day % 3 === 0 ? 4 : 2;
+    await pool.query(`
+      INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, total_jumlah) VALUES
+      ($1,$2,'Pelayanan Legalisir Buku Nikah','Pemeriksaan keaslian dokumen buku nikah dan verifikasi register akta nikah.',$3)
+    `, [ADMIN_ID, tanggal, legalisirCount]);
   }
-
-  (adminUser as any)._passwordHash = adminPasswordHash;
-  (stafUser as any)._passwordHash = stafPasswordHash;
-
-  return { users: [adminUser, stafUser], kuaDailyData, staffActivities, pejabatPenilai, telegramLogs: [], userActivityTemplates: [] };
 }
 
-function parseUserRow(row: any): User {
-  const u = { ...row };
-  delete u.password;
-  return u as User;
+function rowToUser(row: any, includePassword = false): User {
+  const user: User = {
+    id: row.id,
+    email: row.email,
+    role: row.role,
+    nama: row.nama,
+    nip: row.nip,
+    jabatan: row.jabatan,
+    level_jabatan: row.level_jabatan || '',
+    pangkat: row.pangkat || '',
+    ruang_golongan: row.ruang_golongan || '',
+    grade_tukin: row.grade_tukin || 0,
+    jumlah_tukin_kotor: Number(row.jumlah_tukin_kotor) || 0,
+    jumlah_tukin_bersih: Number(row.jumlah_tukin_bersih) || 0,
+    gapok: Number(row.gapok) || 0,
+    foto_profil_url: row.foto_profil_url || '',
+    tanda_tangan_url: row.tanda_tangan_url || '',
+    instansi: row.instansi || 'KUA Ampelgading',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+  if (includePassword) {
+    (user as any)._passwordHash = row.password;
+  }
+  return user;
 }
 
-export class Database {
-  private static instance: Database;
-  private pgAvailable = false;
-  private jsonData: DatabaseData;
+function rowToKuaDaily(row: any): KuaDailyData {
+  return {
+    id: row.id,
+    tanggal: row.tanggal ? row.tanggal.toISOString ? row.tanggal.toISOString().split('T')[0] : String(row.tanggal) : '',
+    pendaftaran_nikah_kantor: row.pendaftaran_nikah_kantor || 0,
+    pendaftaran_nikah_luar_kantor: row.pendaftaran_nikah_luar_kantor || 0,
+    pelaksanaan_nikah_kantor: row.pelaksanaan_nikah_kantor || 0,
+    pelaksanaan_nikah_luar_kantor: row.pelaksanaan_nikah_luar_kantor || 0,
+    pelaksanaan_bimwin: row.pelaksanaan_bimwin || 0,
+    duplikat_buku_nikah: row.duplikat_buku_nikah || 0,
+    surat_rekomendasi_nikah: row.surat_rekomendasi_nikah || 0,
+    legalisir_buku_nikah: row.legalisir_buku_nikah || 0,
+    surat_keluar: row.surat_keluar || 0,
+    pelaksanaan_wakaf: row.pelaksanaan_wakaf || 0,
+    created_by: row.created_by,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
 
-  private constructor() {
-    this.jsonData = getInitialData();
-  }
+function rowToStaffActivity(row: any): StaffActivity {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    tanggal: row.tanggal ? (row.tanggal.toISOString ? row.tanggal.toISOString().split('T')[0] : String(row.tanggal)) : '',
+    kegiatan: row.kegiatan,
+    pekerjaan: row.pekerjaan,
+    total_jumlah: row.total_jumlah || 1,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
 
-  public static getInstance(): Database {
-    if (!Database.instance) Database.instance = new Database();
-    return Database.instance;
-  }
+function rowToPejabatPenilai(row: any): PejabatPenilai {
+  return {
+    id: row.id,
+    nama: row.nama,
+    nip: row.nip,
+    jabatan: row.jabatan,
+    stempel_url: row.stempel_url || '',
+    tanda_tangan_url: row.tanda_tangan_url || '',
+    updated_at: row.updated_at,
+  };
+}
 
-  async init() {
-    this.pgAvailable = await isConnected();
-    if (this.pgAvailable) {
-      await initializeSchema();
-      await seedInitialData();
-    } else {
-      ensureDataDirectory();
-      if (fs.existsSync(DB_PATH)) {
-        try { this.jsonData = JSON.parse(fs.readFileSync(DB_PATH, 'utf-8')); }
-        catch { this.jsonData = getInitialData(); this.jsonSave(); }
-      } else { this.jsonSave(); }
-    }
-  }
+function rowToTelegramLog(row: any): TelegramLog {
+  return {
+    id: row.id,
+    command: row.command,
+    chat_id: row.chat_id,
+    user_name: row.user_name,
+    message: row.message,
+    status: row.status,
+    timestamp: row.timestamp,
+  };
+}
 
-  private jsonSave() {
-    try { ensureDataDirectory(); fs.writeFileSync(DB_PATH, JSON.stringify(this.jsonData, null, 2), 'utf-8'); }
-    catch (err) { console.error('Failed to save database file:', err); }
-  }
+function rowToActivityTemplate(row: any): UserActivityTemplate {
+  return {
+    id: row.id,
+    user_id: row.user_id,
+    activity_type_key: row.activity_type_key,
+    kegiatan: row.kegiatan,
+    pekerjaan: row.pekerjaan,
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
 
+const KUA_DAILY_FIELDS = [
+  'pendaftaran_nikah_kantor', 'pendaftaran_nikah_luar_kantor',
+  'pelaksanaan_nikah_kantor', 'pelaksanaan_nikah_luar_kantor',
+  'pelaksanaan_bimwin', 'duplikat_buku_nikah',
+  'surat_rekomendasi_nikah', 'legalisir_buku_nikah',
+  'surat_keluar', 'pelaksanaan_wakaf',
+];
+
+export const db = {
   async getUsers(): Promise<User[]> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT id, email, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi, created_at, updated_at FROM users ORDER BY nama');
-      return result.rows.map(parseUserRow);
-    }
-    return this.jsonData.users.map(({ ...u }) => { delete (u as any)._passwordHash; return u; });
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM users ORDER BY created_at');
+    return result.rows.map(r => rowToUser(r));
+  },
 
   async getUserById(id: string): Promise<User | undefined> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT id, email, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi, created_at, updated_at FROM users WHERE id = $1', [id]);
-      return result.rows.length ? parseUserRow(result.rows[0]) : undefined;
-    }
-    const user = this.jsonData.users.find(u => u.id === id);
-    if (!user) return undefined;
-    const copy = { ...user };
-    delete (copy as any)._passwordHash;
-    return copy;
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    if (result.rows.length === 0) return undefined;
+    return rowToUser(result.rows[0]);
+  },
 
   async getUserByEmail(email: string): Promise<(User & { _passwordHash?: string }) | undefined> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
-      if (!result.rows.length) return undefined;
-      const row = result.rows[0];
-      return { ...parseUserRow(row), _passwordHash: row.password };
-    }
-    return this.jsonData.users.find(u => u.email.toLowerCase() === email.toLowerCase());
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM users WHERE LOWER(email) = LOWER($1)', [email]);
+    if (result.rows.length === 0) return undefined;
+    return rowToUser(result.rows[0], true) as any;
+  },
 
   async createUser(user: User, passwordRaw: string): Promise<User> {
-    if (this.pgAvailable) {
-      const passwordHash = bcrypt.hashSync(passwordRaw, 10);
-      const result = await query(`
-        INSERT INTO users (email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi)
-        VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
-        RETURNING id, email, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi, created_at, updated_at
-      `, [user.email, passwordHash, user.role, user.nama, user.nip, user.jabatan, user.level_jabatan, user.pangkat, user.ruang_golongan, user.grade_tukin, user.jumlah_tukin_kotor, user.jumlah_tukin_bersih, user.gapok, user.foto_profil_url, user.tanda_tangan_url, user.instansi]);
-      return parseUserRow(result.rows[0]);
-    }
+    await ensureReady();
     const passwordHash = bcrypt.hashSync(passwordRaw, 10);
-    const newUser = { ...user, id: `usr-${Date.now()}`, created_at: new Date().toISOString(), updated_at: new Date().toISOString(), _passwordHash: passwordHash };
-    this.jsonData.users.push(newUser as any);
-    this.jsonSave();
-    const copy = { ...newUser };
-    delete (copy as any)._passwordHash;
-    return copy;
-  }
+    const id = user.id || undefined;
+    const result = await pool.query(`
+      INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi)
+      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      RETURNING *
+    `, [
+      id, user.email, passwordHash, user.role, user.nama, user.nip,
+      user.jabatan || 'Staf / Pegawai KUA', user.level_jabatan || 'Pelaksana',
+      user.pangkat || 'Penata Muda', user.ruang_golongan || 'III/a',
+      user.grade_tukin || 8, user.jumlah_tukin_kotor || 0, user.jumlah_tukin_bersih || 0,
+      user.gapok || 0, user.foto_profil_url || '', user.tanda_tangan_url || '',
+      user.instansi || 'KUA Ampelgading',
+    ]);
+    return rowToUser(result.rows[0]);
+  },
 
   async updateUser(id: string, updates: Partial<User> & { password?: string }): Promise<User | null> {
-    if (this.pgAvailable) {
-      const fields: string[] = []; const values: any[] = []; let idx = 1;
-      const allowed = ['email','role','nama','nip','jabatan','level_jabatan','pangkat','ruang_golongan','grade_tukin','jumlah_tukin_kotor','jumlah_tukin_bersih','gapok','foto_profil_url','tanda_tangan_url','instansi'];
-      for (const key of allowed) {
-        if ((updates as any)[key] !== undefined) {
-          fields.push(`${key} = $${idx++}`);
-          values.push((updates as any)[key]);
-        }
-      }
-      if (updates.password) {
-        fields.push(`password = $${idx++}`);
-        values.push(bcrypt.hashSync(updates.password, 10));
-      }
-      fields.push(`updated_at = CURRENT_TIMESTAMP`);
-      if (fields.length === 1) return null;
-      values.push(id);
-      const result = await query(`UPDATE users SET ${fields.join(', ')} WHERE id = $${idx} RETURNING id, email, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi, created_at, updated_at`, values);
-      return result.rows.length ? parseUserRow(result.rows[0]) : null;
-    }
-    const idx = this.jsonData.users.findIndex(u => u.id === id);
-    if (idx === -1) return null;
-    const current = this.jsonData.users[idx];
-    let newHash = (current as any)._passwordHash;
-    if (updates.password) newHash = bcrypt.hashSync(updates.password, 10);
-    delete updates.password;
-    const updatedUser = { ...current, ...updates, updated_at: new Date().toISOString(), _passwordHash: newHash };
-    this.jsonData.users[idx] = updatedUser;
-    this.jsonSave();
-    const copy = { ...updatedUser };
-    delete (copy as any)._passwordHash;
-    return copy;
-  }
+    await ensureReady();
+    const existing = await pool.query('SELECT * FROM users WHERE id = $1', [id]);
+    if (existing.rows.length === 0) return null;
+
+    const current = existing.rows[0];
+    const newPassword = updates.password ? bcrypt.hashSync(updates.password, 10) : current.password;
+    delete (updates as any).password;
+
+    const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
+
+    const result = await pool.query(`
+      UPDATE users SET email=$1, password=$2, role=$3, nama=$4, nip=$5, jabatan=$6, level_jabatan=$7, pangkat=$8, ruang_golongan=$9, grade_tukin=$10, jumlah_tukin_kotor=$11, jumlah_tukin_bersih=$12, gapok=$13, foto_profil_url=$14, tanda_tangan_url=$15, instansi=$16, updated_at=$17
+      WHERE id=$18 RETURNING *
+    `, [
+      merged.email, newPassword, merged.role, merged.nama, merged.nip,
+      merged.jabatan, merged.level_jabatan, merged.pangkat, merged.ruang_golongan,
+      merged.grade_tukin, merged.jumlah_tukin_kotor, merged.jumlah_tukin_bersih, merged.gapok,
+      merged.foto_profil_url, merged.tanda_tangan_url, merged.instansi,
+      merged.updated_at, id,
+    ]);
+    return rowToUser(result.rows[0]);
+  },
 
   async deleteUser(id: string): Promise<boolean> {
-    if (this.pgAvailable) {
-      const result = await query('DELETE FROM users WHERE id = $1', [id]);
-      return result.rowCount !== null && result.rowCount > 0;
-    }
-    const initLen = this.jsonData.users.length;
-    this.jsonData.users = this.jsonData.users.filter(u => u.id !== id);
-    if (this.jsonData.users.length !== initLen) { this.jsonSave(); return true; }
-    return false;
-  }
+    await ensureReady();
+    const result = await pool.query('DELETE FROM users WHERE id = $1', [id]);
+    return result.rowCount !== null && result.rowCount > 0;
+  },
 
   async getKuaDailyData(month?: number, year?: number): Promise<KuaDailyData[]> {
-    if (this.pgAvailable) {
-      let sql = 'SELECT * FROM kua_daily_data'; const params: any[] = [];
-      if (year && month) { sql += ' WHERE EXTRACT(YEAR FROM tanggal) = $1 AND EXTRACT(MONTH FROM tanggal) = $2'; params.push(year, month); }
-      sql += ' ORDER BY tanggal';
-      const result = await query(sql, params);
-      return result.rows.map((r: any) => ({ ...r, tanggal: r.tanggal.toISOString().split('T')[0] }));
+    await ensureReady();
+    let query = 'SELECT * FROM kua_daily_data';
+    const params: any[] = [];
+    if (year && month) {
+      query += " WHERE EXTRACT(YEAR FROM tanggal) = $1 AND EXTRACT(MONTH FROM tanggal) = $2";
+      params.push(year, month);
     }
-    let list = this.jsonData.kuaDailyData;
-    if (year && month) list = list.filter(item => { const [y, m] = item.tanggal.split('-').map(Number); return y === year && m === month; });
-    return list.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
-  }
+    query += ' ORDER BY tanggal';
+    const result = await pool.query(query, params);
+    return result.rows.map(rowToKuaDaily);
+  },
 
   async getKuaDailyByDate(tanggal: string): Promise<KuaDailyData | undefined> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT * FROM kua_daily_data WHERE tanggal = $1', [tanggal]);
-      if (!result.rows.length) return undefined;
-      const r = result.rows[0];
-      return { ...r, tanggal: r.tanggal.toISOString().split('T')[0] };
-    }
-    return this.jsonData.kuaDailyData.find(item => item.tanggal === tanggal);
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM kua_daily_data WHERE tanggal = $1', [tanggal]);
+    if (result.rows.length === 0) return undefined;
+    return rowToKuaDaily(result.rows[0]);
+  },
 
-  async upsertKuaDailyData(data: Omit<KuaDailyData, 'id' | 'created_at' | 'updated_at'> & { id?: string }): Promise<KuaDailyData> {
-    if (this.pgAvailable) {
-      const existing = await query('SELECT id FROM kua_daily_data WHERE tanggal = $1', [data.tanggal]);
-      if (existing.rows.length) {
-        const allowed = ['pendaftaran_nikah_kantor','pendaftaran_nikah_luar_kantor','pelaksanaan_nikah_kantor','pelaksanaan_nikah_luar_kantor','pelaksanaan_bimwin','duplikat_buku_nikah','surat_rekomendasi_nikah','legalisir_buku_nikah','surat_keluar','pelaksanaan_wakaf','created_by'];
-        const sets: string[] = []; const vals: any[] = []; let idx = 1;
-        for (const k of allowed) { if ((data as any)[k] !== undefined) { sets.push(`${k} = $${idx++}`); vals.push((data as any)[k]); } }
-        sets.push('updated_at = CURRENT_TIMESTAMP');
-        vals.push(existing.rows[0].id);
-        await query(`UPDATE kua_daily_data SET ${sets.join(', ')} WHERE id = $${idx}`, vals);
-        const updated = await query('SELECT * FROM kua_daily_data WHERE id = $1', [existing.rows[0].id]);
-        const r = updated.rows[0];
-        return { ...r, tanggal: r.tanggal.toISOString().split('T')[0] };
-      } else {
-        const result = await query(`
-          INSERT INTO kua_daily_data (tanggal, pendaftaran_nikah_kantor, pendaftaran_nikah_luar_kantor, pelaksanaan_nikah_kantor, pelaksanaan_nikah_luar_kantor, pelaksanaan_bimwin, duplikat_buku_nikah, surat_rekomendasi_nikah, legalisir_buku_nikah, surat_keluar, pelaksanaan_wakaf, created_by)
-          VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12)
-          RETURNING *
-        `, [data.tanggal, data.pendaftaran_nikah_kantor || 0, data.pendaftaran_nikah_luar_kantor || 0, data.pelaksanaan_nikah_kantor || 0, data.pelaksanaan_nikah_luar_kantor || 0, data.pelaksanaan_bimwin || 0, data.duplikat_buku_nikah || 0, data.surat_rekomendasi_nikah || 0, data.legalisir_buku_nikah || 0, data.surat_keluar || 0, data.pelaksanaan_wakaf || 0, data.created_by || null]);
-        const r = result.rows[0];
-        return { ...r, tanggal: r.tanggal.toISOString().split('T')[0] };
-      }
-    }
-    const existingIdx = this.jsonData.kuaDailyData.findIndex(item => item.tanggal === data.tanggal);
+  async upsertKuaDailyData(data: Record<string, any>): Promise<KuaDailyData> {
+    await ensureReady();
+    const tanggal = data.tanggal;
+    if (!tanggal) throw new Error('tanggal wajib diisi');
+
+    const existing = await pool.query('SELECT * FROM kua_daily_data WHERE tanggal = $1', [tanggal]);
     const now = new Date().toISOString();
-    if (existingIdx !== -1) {
-      const updated = { ...this.jsonData.kuaDailyData[existingIdx], ...data, updated_at: now };
-      this.jsonData.kuaDailyData[existingIdx] = updated; this.jsonSave(); return updated;
-    } else {
-      const created: KuaDailyData = { id: data.id || `kua-daily-${Date.now()}`, tanggal: data.tanggal || new Date().toISOString().split('T')[0], pendaftaran_nikah_kantor: data.pendaftaran_nikah_kantor || 0, pendaftaran_nikah_luar_kantor: data.pendaftaran_nikah_luar_kantor || 0, pelaksanaan_nikah_kantor: data.pelaksanaan_nikah_kantor || 0, pelaksanaan_nikah_luar_kantor: data.pelaksanaan_nikah_luar_kantor || 0, pelaksanaan_bimwin: data.pelaksanaan_bimwin || 0, duplikat_buku_nikah: data.duplikat_buku_nikah || 0, surat_rekomendasi_nikah: data.surat_rekomendasi_nikah || 0, legalisir_buku_nikah: data.legalisir_buku_nikah || 0, surat_keluar: data.surat_keluar || 0, pelaksanaan_wakaf: data.pelaksanaan_wakaf || 0, ...data, created_at: now, updated_at: now };
-      this.jsonData.kuaDailyData.push(created); this.jsonSave(); return created;
+
+    const fields: Record<string, any> = { tanggal };
+    for (const key of KUA_DAILY_FIELDS) {
+      fields[key] = data[key] !== undefined ? (typeof data[key] === 'number' ? data[key] : (Number(data[key]) || 0)) : 0;
     }
-  }
+    fields.created_by = data.created_by || null;
+    fields.updated_at = now;
+
+    const setFragments: string[] = [];
+    const setValues: any[] = [];
+    let idx = 1;
+
+    for (const key of [...KUA_DAILY_FIELDS, 'created_by', 'updated_at']) {
+      setFragments.push(`${key}=$${idx}`);
+      setValues.push(fields[key]);
+      idx++;
+    }
+    setValues.push(tanggal);
+
+    if (existing.rows.length > 0) {
+      const result = await pool.query(`
+        UPDATE kua_daily_data SET ${setFragments.join(', ')} WHERE tanggal=$${idx} RETURNING *
+      `, setValues);
+      return rowToKuaDaily(result.rows[0]);
+    } else {
+      const insertFields = ['id', 'tanggal', ...KUA_DAILY_FIELDS, 'created_by', 'created_at', 'updated_at'];
+      const insertPlaceholders = ['gen_random_uuid()', '$1', ...KUA_DAILY_FIELDS.map((_, i) => `$${i + 2}`), `$${KUA_DAILY_FIELDS.length + 2}`, `$${KUA_DAILY_FIELDS.length + 3}`, `$${KUA_DAILY_FIELDS.length + 4}`];
+      const insertValues = [tanggal, ...KUA_DAILY_FIELDS.map(k => fields[k]), fields.created_by, now, now];
+      const result = await pool.query(`
+        INSERT INTO kua_daily_data (${insertFields.join(', ')}) VALUES (${insertPlaceholders.join(', ')}) RETURNING *
+      `, insertValues);
+      return rowToKuaDaily(result.rows[0]);
+    }
+  },
 
   async deleteKuaDailyData(id: string): Promise<boolean> {
-    if (this.pgAvailable) {
-      const result = await query('DELETE FROM kua_daily_data WHERE id = $1', [id]);
-      return result.rowCount !== null && result.rowCount > 0;
-    }
-    const initLen = this.jsonData.kuaDailyData.length;
-    this.jsonData.kuaDailyData = this.jsonData.kuaDailyData.filter(item => item.id !== id);
-    if (this.jsonData.kuaDailyData.length !== initLen) { this.jsonSave(); return true; }
-    return false;
-  }
+    await ensureReady();
+    const result = await pool.query('DELETE FROM kua_daily_data WHERE id = $1', [id]);
+    return result.rowCount !== null && result.rowCount > 0;
+  },
 
   async getStaffActivities(userId?: string, month?: number, year?: number): Promise<StaffActivity[]> {
-    if (this.pgAvailable) {
-      let sql = 'SELECT * FROM staff_activities WHERE 1=1'; const params: any[] = [];
-      if (userId) { sql += ' AND user_id = $' + (params.length + 1); params.push(userId); }
-      if (year && month) { sql += ' AND EXTRACT(YEAR FROM tanggal) = $' + (params.length + 1) + ' AND EXTRACT(MONTH FROM tanggal) = $' + (params.length + 2); params.push(year, month); }
-      sql += ' ORDER BY tanggal';
-      const result = await query(sql, params);
-      return result.rows.map((r: any) => ({ ...r, tanggal: r.tanggal.toISOString().split('T')[0] }));
+    await ensureReady();
+    const conditions: string[] = [];
+    const params: any[] = [];
+    let idx = 1;
+    if (userId) {
+      conditions.push(`user_id = $${idx++}`);
+      params.push(userId);
     }
-    let list = this.jsonData.staffActivities;
-    if (userId) list = list.filter(item => item.user_id === userId);
-    if (year && month) list = list.filter(item => { const [y, m] = item.tanggal.split('-').map(Number); return y === year && m === month; });
-    return list.sort((a, b) => a.tanggal.localeCompare(b.tanggal));
-  }
+    if (year && month) {
+      conditions.push(`EXTRACT(YEAR FROM tanggal) = $${idx++}`);
+      params.push(year);
+      conditions.push(`EXTRACT(MONTH FROM tanggal) = $${idx++}`);
+      params.push(month);
+    }
+    const where = conditions.length > 0 ? 'WHERE ' + conditions.join(' AND ') : '';
+    const result = await pool.query(`SELECT * FROM staff_activities ${where} ORDER BY tanggal`, params);
+    return result.rows.map(rowToStaffActivity);
+  },
 
   async createStaffActivity(activity: Omit<StaffActivity, 'id' | 'created_at' | 'updated_at'>): Promise<StaffActivity> {
-    if (this.pgAvailable) {
-      const result = await query(`
-        INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, activity_type_key, total_jumlah)
-        VALUES ($1,$2,$3,$4,$5,$6)
-        RETURNING *
-      `, [activity.user_id, activity.tanggal, activity.kegiatan, activity.pekerjaan, activity.activity_type_key || null, activity.total_jumlah || 1]);
-      const r = result.rows[0];
-      return { ...r, tanggal: r.tanggal.toISOString().split('T')[0] };
-    }
-    const now = new Date().toISOString();
-    const newActivity: StaffActivity = { ...activity, id: `act-${Date.now()}-${Math.floor(Math.random() * 1000)}`, created_at: now, updated_at: now };
-    this.jsonData.staffActivities.push(newActivity); this.jsonSave();
-    return newActivity;
-  }
+    await ensureReady();
+    const result = await pool.query(`
+      INSERT INTO staff_activities (user_id, tanggal, kegiatan, pekerjaan, total_jumlah)
+      VALUES ($1, $2, $3, $4, $5) RETURNING *
+    `, [activity.user_id, activity.tanggal, activity.kegiatan, activity.pekerjaan, activity.total_jumlah || 1]);
+    return rowToStaffActivity(result.rows[0]);
+  },
 
   async updateStaffActivity(id: string, updates: Partial<StaffActivity>): Promise<StaffActivity | null> {
-    if (this.pgAvailable) {
-      const fields: string[] = []; const vals: any[] = []; let idx = 1;
-      const allowedUpdates = ['user_id','tanggal','kegiatan','pekerjaan','activity_type_key','total_jumlah'];
-      for (const k of allowedUpdates) {
-        if ((updates as any)[k] !== undefined) {
-          fields.push(`${k} = $${idx++}`);
-          vals.push((updates as any)[k]);
-        }
-      }
-      fields.push('updated_at = CURRENT_TIMESTAMP');
-      vals.push(id);
-      if (fields.length === 1) return null;
-      const result = await query(`UPDATE staff_activities SET ${fields.join(', ')} WHERE id = $${idx} RETURNING *`, vals);
-      if (!result.rows.length) return null;
-      const r = result.rows[0];
-      return { ...r, tanggal: r.tanggal.toISOString().split('T')[0] };
-    }
-    const idx = this.jsonData.staffActivities.findIndex(item => item.id === id);
-    if (idx === -1) return null;
-    const updated = { ...this.jsonData.staffActivities[idx], ...updates, updated_at: new Date().toISOString() };
-    this.jsonData.staffActivities[idx] = updated; this.jsonSave();
-    return updated;
-  }
+    await ensureReady();
+    const existing = await pool.query('SELECT * FROM staff_activities WHERE id = $1', [id]);
+    if (existing.rows.length === 0) return null;
+
+    const merged = { ...existing.rows[0], ...updates, updated_at: new Date().toISOString() };
+    const result = await pool.query(`
+      UPDATE staff_activities SET user_id=$1, tanggal=$2, kegiatan=$3, pekerjaan=$4, total_jumlah=$5, updated_at=$6
+      WHERE id=$7 RETURNING *
+    `, [merged.user_id, merged.tanggal, merged.kegiatan, merged.pekerjaan, merged.total_jumlah, merged.updated_at, id]);
+    return rowToStaffActivity(result.rows[0]);
+  },
 
   async deleteStaffActivity(id: string): Promise<boolean> {
-    if (this.pgAvailable) {
-      const result = await query('DELETE FROM staff_activities WHERE id = $1', [id]);
-      return result.rowCount !== null && result.rowCount > 0;
-    }
-    const initLen = this.jsonData.staffActivities.length;
-    this.jsonData.staffActivities = this.jsonData.staffActivities.filter(item => item.id !== id);
-    if (this.jsonData.staffActivities.length !== initLen) { this.jsonSave(); return true; }
-    return false;
-  }
+    await ensureReady();
+    const result = await pool.query('DELETE FROM staff_activities WHERE id = $1', [id]);
+    return result.rowCount !== null && result.rowCount > 0;
+  },
 
   async getPejabatPenilai(): Promise<PejabatPenilai> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT * FROM pejabat_penilai LIMIT 1');
-      if (result.rows.length) return result.rows[0];
-      return { id: 'pjb-001', nama: 'Mohamad Amin, S.HI', nip: '197203102001121001', jabatan: 'Kepala KUA Ampelgading', stempel_url: '', tanda_tangan_url: '', opsi_anchor_ttd: '^', updated_at: new Date().toISOString() };
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM pejabat_penilai LIMIT 1');
+    if (result.rows.length === 0) {
+      return {
+        id: '',
+        nama: '',
+        nip: '',
+        jabatan: '',
+        stempel_url: '',
+        tanda_tangan_url: '',
+        updated_at: '',
+      };
     }
-    return this.jsonData.pejabatPenilai;
-  }
+    return rowToPejabatPenilai(result.rows[0]);
+  },
 
   async updatePejabatPenilai(updates: Partial<PejabatPenilai>): Promise<PejabatPenilai> {
-    if (this.pgAvailable) {
-      const existing = await query('SELECT id FROM pejabat_penilai LIMIT 1');
-      const fields: string[] = []; const vals: any[] = []; let idx = 1;
-      for (const k of ['nama','nip','jabatan','stempel_url','tanda_tangan_url']) {
-        if ((updates as any)[k] !== undefined) { fields.push(`${k} = $${idx++}`); vals.push((updates as any)[k]); }
-      }
-      fields.push('updated_at = CURRENT_TIMESTAMP');
-      if (existing.rows.length) {
-        vals.push(existing.rows[0].id);
-        await query(`UPDATE pejabat_penilai SET ${fields.join(', ')} WHERE id = $${idx}`, vals);
-      } else {
-        await query(`INSERT INTO pejabat_penilai (nama, nip, jabatan, stempel_url, tanda_tangan_url) VALUES ($1,$2,$3,$4,$5)`, [updates.nama || '', updates.nip || '', updates.jabatan || '', updates.stempel_url || '', updates.tanda_tangan_url || '']);
-      }
-      const result = await query('SELECT * FROM pejabat_penilai LIMIT 1');
-      return result.rows[0];
+    await ensureReady();
+    const existing = await pool.query('SELECT * FROM pejabat_penilai LIMIT 1');
+    const now = new Date().toISOString();
+
+    if (existing.rows.length > 0) {
+      const merged = { ...existing.rows[0], ...updates, updated_at: now };
+      const result = await pool.query(`
+        UPDATE pejabat_penilai SET nama=$1, nip=$2, jabatan=$3, stempel_url=$4, tanda_tangan_url=$5, updated_at=$6
+        WHERE id=$7 RETURNING *
+      `, [merged.nama, merged.nip, merged.jabatan, merged.stempel_url || '', merged.tanda_tangan_url || '', now, existing.rows[0].id]);
+      return rowToPejabatPenilai(result.rows[0]);
+    } else {
+      const result = await pool.query(`
+        INSERT INTO pejabat_penilai (nama, nip, jabatan, stempel_url, tanda_tangan_url, updated_at)
+        VALUES ($1, $2, $3, $4, $5, $6) RETURNING *
+      `, [updates.nama, updates.nip, updates.jabatan, updates.stempel_url || '', updates.tanda_tangan_url || '', now]);
+      return rowToPejabatPenilai(result.rows[0]);
     }
-    this.jsonData.pejabatPenilai = { ...this.jsonData.pejabatPenilai, ...updates, updated_at: new Date().toISOString() };
-    this.jsonSave();
-    return this.jsonData.pejabatPenilai;
-  }
+  },
 
   async getTelegramLogs(): Promise<TelegramLog[]> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT * FROM telegram_logs ORDER BY timestamp DESC LIMIT 100');
-      return result.rows.map((r: any) => ({ ...r, timestamp: r.timestamp?.toISOString?.() || r.timestamp }));
-    }
-    return this.jsonData.telegramLogs || [];
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM telegram_logs ORDER BY timestamp DESC');
+    return result.rows.map(rowToTelegramLog);
+  },
 
   async addTelegramLog(log: Omit<TelegramLog, 'id' | 'timestamp'>): Promise<TelegramLog> {
-    const now = new Date().toISOString();
-    if (this.pgAvailable) {
-      const result = await query(`
-        INSERT INTO telegram_logs (command, chat_id, user_name, message, status)
-        VALUES ($1,$2,$3,$4,$5)
-        RETURNING *
-      `, [log.command, log.chat_id, log.user_name, log.message, log.status]);
-      const r = result.rows[0];
-      return { ...r, timestamp: r.timestamp?.toISOString?.() || r.timestamp };
-    }
-    if (!this.jsonData.telegramLogs) this.jsonData.telegramLogs = [];
-    const newLog: TelegramLog = { ...log, id: `tg-${Date.now()}`, timestamp: now };
-    this.jsonData.telegramLogs.unshift(newLog);
-    if (this.jsonData.telegramLogs.length > 100) this.jsonData.telegramLogs = this.jsonData.telegramLogs.slice(0, 100);
-    this.jsonSave();
-    return newLog;
-  }
+    await ensureReady();
+    const result = await pool.query(`
+      INSERT INTO telegram_logs (command, chat_id, user_name, message, status)
+      VALUES ($1, $2, $3, $4, $5) RETURNING *
+    `, [log.command, log.chat_id, log.user_name, log.message, log.status]);
+    return rowToTelegramLog(result.rows[0]);
+  },
 
   async getUserActivityTemplates(userId: string): Promise<UserActivityTemplate[]> {
-    if (this.pgAvailable) {
-      const result = await query('SELECT * FROM user_activity_templates WHERE user_id = $1 ORDER BY activity_type_key', [userId]);
-      return result.rows;
-    }
-    if (!this.jsonData.userActivityTemplates) this.jsonData.userActivityTemplates = [];
-    return this.jsonData.userActivityTemplates.filter(t => t.user_id === userId);
-  }
+    await ensureReady();
+    const result = await pool.query('SELECT * FROM user_activity_templates WHERE user_id = $1 ORDER BY activity_type_key', [userId]);
+    return result.rows.map(rowToActivityTemplate);
+  },
 
   async getUserActivityTemplatesMap(userId: string): Promise<UserActivityTemplatesMap> {
-    const templates = await this.getUserActivityTemplates(userId);
+    await ensureReady();
+    const templates = await db.getUserActivityTemplates(userId);
     const map: UserActivityTemplatesMap = {};
-    templates.forEach(t => { map[t.activity_type_key] = { kegiatan: t.kegiatan, pekerjaan: t.pekerjaan }; });
+    templates.forEach(t => {
+      map[t.activity_type_key] = { kegiatan: t.kegiatan, pekerjaan: t.pekerjaan };
+    });
     return map;
-  }
+  },
 
-  async upsertUserActivityTemplate(userId: string, activityTypeKey: string, data: { kegiatan: string; pekerjaan: string }): Promise<UserActivityTemplate> {
-    if (this.pgAvailable) {
-      const result = await query(`
-        INSERT INTO user_activity_templates (user_id, activity_type_key, kegiatan, pekerjaan)
-        VALUES ($1,$2,$3,$4)
-        ON CONFLICT (user_id, activity_type_key)
-        DO UPDATE SET kegiatan = EXCLUDED.kegiatan, pekerjaan = EXCLUDED.pekerjaan, updated_at = CURRENT_TIMESTAMP
-        RETURNING *
-      `, [userId, activityTypeKey, data.kegiatan, data.pekerjaan]);
-      return result.rows[0];
-    }
-    if (!this.jsonData.userActivityTemplates) this.jsonData.userActivityTemplates = [];
-    const idx = this.jsonData.userActivityTemplates.findIndex(t => t.user_id === userId && t.activity_type_key === activityTypeKey);
+  async upsertUserActivityTemplate(
+    userId: string,
+    activityTypeKey: string,
+    data: { kegiatan: string; pekerjaan: string }
+  ): Promise<UserActivityTemplate> {
+    await ensureReady();
     const now = new Date().toISOString();
-    if (idx !== -1) {
-      this.jsonData.userActivityTemplates[idx] = { ...this.jsonData.userActivityTemplates[idx], kegiatan: data.kegiatan, pekerjaan: data.pekerjaan, updated_at: now };
-      this.jsonSave();
-      return this.jsonData.userActivityTemplates[idx];
-    } else {
-      const template: UserActivityTemplate = { id: `ut-${Date.now()}-${Math.floor(Math.random() * 1000)}`, user_id: userId, activity_type_key: activityTypeKey, kegiatan: data.kegiatan, pekerjaan: data.pekerjaan, created_at: now, updated_at: now };
-      this.jsonData.userActivityTemplates.push(template); this.jsonSave();
-      return template;
-    }
-  }
 
-  async bulkUpsertUserActivityTemplates(userId: string, templates: Array<{ activity_type_key: string; kegiatan: string; pekerjaan: string }>): Promise<UserActivityTemplate[]> {
+    const existing = await pool.query(
+      'SELECT * FROM user_activity_templates WHERE user_id = $1 AND activity_type_key = $2',
+      [userId, activityTypeKey]
+    );
+
+    if (existing.rows.length > 0) {
+      const result = await pool.query(`
+        UPDATE user_activity_templates SET kegiatan=$1, pekerjaan=$2, updated_at=$3
+        WHERE user_id=$4 AND activity_type_key=$5 RETURNING *
+      `, [data.kegiatan, data.pekerjaan, now, userId, activityTypeKey]);
+      return rowToActivityTemplate(result.rows[0]);
+    } else {
+      const result = await pool.query(`
+        INSERT INTO user_activity_templates (user_id, activity_type_key, kegiatan, pekerjaan, updated_at)
+        VALUES ($1, $2, $3, $4, $5) RETURNING *
+      `, [userId, activityTypeKey, data.kegiatan, data.pekerjaan, now]);
+      return rowToActivityTemplate(result.rows[0]);
+    }
+  },
+
+  async bulkUpsertUserActivityTemplates(
+    userId: string,
+    templates: Array<{ activity_type_key: string; kegiatan: string; pekerjaan: string }>
+  ): Promise<UserActivityTemplate[]> {
     const results: UserActivityTemplate[] = [];
     for (const t of templates) {
-      results.push(await this.upsertUserActivityTemplate(userId, t.activity_type_key, { kegiatan: t.kegiatan, pekerjaan: t.pekerjaan }));
+      const r = await db.upsertUserActivityTemplate(userId, t.activity_type_key, {
+        kegiatan: t.kegiatan,
+        pekerjaan: t.pekerjaan,
+      });
+      results.push(r);
     }
     return results;
-  }
+  },
 
   async deleteUserActivityTemplate(userId: string, activityTypeKey: string): Promise<boolean> {
-    if (this.pgAvailable) {
-      const result = await query('DELETE FROM user_activity_templates WHERE user_id = $1 AND activity_type_key = $2', [userId, activityTypeKey]);
-      return result.rowCount !== null && result.rowCount > 0;
-    }
-    if (!this.jsonData.userActivityTemplates) return false;
-    const initLen = this.jsonData.userActivityTemplates.length;
-    this.jsonData.userActivityTemplates = this.jsonData.userActivityTemplates.filter(t => !(t.user_id === userId && t.activity_type_key === activityTypeKey));
-    if (this.jsonData.userActivityTemplates.length !== initLen) { this.jsonSave(); return true; }
-    return false;
-  }
-}
+    await ensureReady();
+    const result = await pool.query(
+      'DELETE FROM user_activity_templates WHERE user_id = $1 AND activity_type_key = $2',
+      [userId, activityTypeKey]
+    );
+    return result.rowCount !== null && result.rowCount > 0;
+  },
+};
 
-export const db = Database.getInstance();
+export async function initDatabase() {
+  await ensureReady();
+}

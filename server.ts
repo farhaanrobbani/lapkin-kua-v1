@@ -2,7 +2,7 @@ import express from 'express';
 import path from 'path';
 import { createServer as createViteServer } from 'vite';
 
-import { db } from './src/server/db/database';
+import { initDatabase } from './src/server/db/database';
 import authRoutes from './src/server/routes/auth';
 import userRoutes from './src/server/routes/users';
 import kuaDailyRoutes from './src/server/routes/kuaDaily';
@@ -13,8 +13,7 @@ import exportRoutes from './src/server/routes/export';
 import userTemplateRoutes from './src/server/routes/userTemplates';
 
 async function startServer() {
-  await db.init();
-
+  await initDatabase();
   const app = express();
   const PORT = Number(process.env.PORT) || 7000;
 
