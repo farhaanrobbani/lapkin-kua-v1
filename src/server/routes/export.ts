@@ -93,18 +93,16 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'user_id, month, year, dan template wajib diisi.' });
     }
 
-    const user = db.getUserById(user_id);
-    if (!user) {
-      return res.status(404).json({ error: 'User tidak ditemukan.' });
-    }
+    const user = await db.getUserById(user_id);
+    if (!user) return res.status(404).json({ error: 'User tidak ditemukan.' });
 
-    const pejabatPenilai = db.getPejabatPenilai();
+    const pejabatPenilai = await db.getPejabatPenilai();
     const monthName = getNamaBulan(month);
     const lastDayOfMonth = new Date(year, month, 0).getDate();
     const totalHariKerja = totalHariKerjaInput || 22;
 
     if (template === 'template1') {
-      const activities = db.getStaffActivities(user_id, month, year);
+      const activities = await db.getStaffActivities(user_id, month, year);
       const defaultDateStr = `${lastDayOfMonth} ${monthName} ${year}`;
 
       let printDateStr = defaultDateStr;
@@ -194,10 +192,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
                 width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER,
                 children: [
                   new Paragraph({ children: [new TextRun({ text: 'Pejabat Penilai,', font: FONT, size: 20 })] }),
-                  new Paragraph({
-                    spacing: { before: 0, after: 1200 },
-                    children: [new TextRun({ text: '', font: FONT, size: 1 })]
-                  }),
+                  new Paragraph({ spacing: { before: 0, after: 1200 }, children: [new TextRun({ text: '', font: FONT, size: 1 })] }),
                   new Paragraph({ children: [new TextRun({ text: pejabatPenilai.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
                   new Paragraph({ children: [new TextRun({ text: `NIP. ${pejabatPenilai.nip}`, font: FONT, size: 18 })] }),
                 ]
@@ -206,10 +201,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
                 width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER,
                 children: [
                   new Paragraph({ children: [new TextRun({ text: 'Pegawai yang Dinilai,', font: FONT, size: 20 })] }),
-                  new Paragraph({
-                    spacing: { before: 0, after: 1200 },
-                    children: [new TextRun({ text: '', font: FONT, size: 1 })]
-                  }),
+                  new Paragraph({ spacing: { before: 0, after: 1200 }, children: [new TextRun({ text: '', font: FONT, size: 1 })] }),
                   new Paragraph({ children: [new TextRun({ text: user.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
                   new Paragraph({ children: [new TextRun({ text: `NIP. ${user.nip}`, font: FONT, size: 18 })] }),
                 ]
@@ -220,10 +212,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
       });
 
       const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [titleParagraph, userMetaTable, tanggalCetakParagraph, new Paragraph({ text: '\n' }), dataTable, new Paragraph({ text: '\n\n' }), signatureTable]
-        }]
+        sections: [{ properties: {}, children: [titleParagraph, userMetaTable, tanggalCetakParagraph, new Paragraph({ text: '\n' }), dataTable, new Paragraph({ text: '\n\n' }), signatureTable] }]
       });
 
       const buffer = await Packer.toBuffer(doc);
@@ -243,11 +232,8 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
       });
 
       const metaRows = [
-        ['Nama', user.nama],
-        ['NIP', user.nip],
-        ['Jabatan', user.jabatan],
-        ['Instansi', user.instansi],
-        ['Grade Tukin', `Grade ${user.grade_tukin}`],
+        ['Nama', user.nama], ['NIP', user.nip], ['Jabatan', user.jabatan],
+        ['Instansi', user.instansi], ['Grade Tukin', `Grade ${user.grade_tukin}`],
         ['Nilai Tukin Bersih', formatRupiah(user.jumlah_tukin_bersih)],
       ].map(([label, val]) => new TableRow({
         children: [
@@ -256,134 +242,90 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
         ]
       }));
 
-      const userMetaTable = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: metaRows });
-
-      let headerTable = userMetaTable;
+      let headerTable = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: metaRows });
       if (user.foto_profil_url) {
         try {
           const imgBuf = await urlFetchBuffer(user.foto_profil_url);
           if (imgBuf && imgBuf.length > 100) {
             const photoParagraph = new Paragraph({
               alignment: AlignmentType.CENTER,
-              children: [
-                new ImageRun({ data: imgBuf, transformation: { width: 100, height: 133 } }),
-              ]
+              children: [new ImageRun({ data: imgBuf, transformation: { width: 100, height: 133 } })]
             });
             headerTable = new Table({
-              width: { size: 100, type: WidthType.PERCENTAGE },
-              borders: TABLE_NO_BORDER,
-              rows: [
-                new TableRow({
-                  children: [
-                    new TableCell({ width: { size: 75, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [userMetaTable] }),
-                    new TableCell({ width: { size: 25, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [photoParagraph] }),
-                  ]
-                })
-              ]
+              width: { size: 100, type: WidthType.PERCENTAGE }, borders: TABLE_NO_BORDER,
+              rows: [new TableRow({ children: [new TableCell({ width: { size: 75, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [headerTable] }), new TableCell({ width: { size: 25, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [photoParagraph] })] })]
             });
           }
         } catch {}
       }
 
       const tableRows: TableRow[] = [
-        new TableRow({
-          tableHeader: true,
-          children: [
-            new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 10, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'NO', bold: true, font: FONT, size: 20 })] })] }),
-            new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'URAIAN', bold: true, font: FONT, size: 20 })] })] }),
-            new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ADA / TIDAK ADA', bold: true, font: FONT, size: 20 })] })] }),
-            new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 30, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'KETERANGAN', bold: true, font: FONT, size: 20 })] })] }),
-          ]
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '1', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Tunjangan Kinerja', bold: true, font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(user.jumlah_tukin_bersih), bold: true, font: FONT, size: 20 })] })] }),
-          ]
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '2', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Kehadiran', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: `${totalHariKerja} Hari`, font: FONT, size: 20 })] })] }),
-          ]
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '3', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Uang Makan', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(nominalUangMakan), bold: true, font: FONT, size: 20 })] })] }),
-          ]
-        }),
-        new TableRow({
-          children: [
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '4', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Laporan Kinerja', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
-            new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: '1 Laporan', font: FONT, size: 20 })] })] }),
-          ]
-        }),
+        new TableRow({ tableHeader: true, children: [
+          new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 10, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'NO', bold: true, font: FONT, size: 20 })] })] }),
+          new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 40, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'URAIAN', bold: true, font: FONT, size: 20 })] })] }),
+          new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 20, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'ADA / TIDAK ADA', bold: true, font: FONT, size: 20 })] })] }),
+          new TableCell({ shading: { fill: 'F1F5F9' }, borders: SINGLE_BORDER, width: { size: 30, type: WidthType.PERCENTAGE }, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'KETERANGAN', bold: true, font: FONT, size: 20 })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '1', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Tunjangan Kinerja', bold: true, font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(user.jumlah_tukin_bersih), bold: true, font: FONT, size: 20 })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '2', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Kehadiran', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: `${totalHariKerja} Hari`, font: FONT, size: 20 })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '3', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Rekap Uang Makan', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: formatRupiah(nominalUangMakan), bold: true, font: FONT, size: 20 })] })] }),
+        ]}),
+        new TableRow({ children: [
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: '4', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: 'Laporan Kinerja', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ alignment: AlignmentType.CENTER, children: [new TextRun({ text: 'Ada', font: FONT, size: 20 })] })] }),
+          new TableCell({ borders: SINGLE_BORDER, children: [new Paragraph({ children: [new TextRun({ text: '1 Laporan', font: FONT, size: 20 })] })] }),
+        ]}),
       ];
 
       const dataTable = new Table({ width: { size: 100, type: WidthType.PERCENTAGE }, rows: tableRows });
 
       const signatureTable = new Table({
-        width: { size: 100, type: WidthType.PERCENTAGE },
-        borders: TABLE_NO_BORDER,
-        rows: [
-          new TableRow({
-            children: [
-              new TableCell({
-                width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER,
-                children: [
-                  new Paragraph({ children: [new TextRun({ text: 'Mengetahui,', font: FONT, size: 20 })] }),
-                  new Paragraph({ children: [new TextRun({ text: pejabatPenilai.jabatan, font: FONT, size: 20 })] }),
-                  new Paragraph({
-                    spacing: { before: 0, after: 1200 },
-                    children: [new TextRun({ text: '', font: FONT, size: 1 })]
-                  }),
-                  new Paragraph({ children: [new TextRun({ text: pejabatPenilai.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
-                  new Paragraph({ children: [new TextRun({ text: `NIP. ${pejabatPenilai.nip}`, font: FONT, size: 18 })] }),
-                ]
-              }),
-              new TableCell({
-                width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER,
-                children: [
-                  new Paragraph({ children: [new TextRun({ text: signatureDateStr, font: FONT, size: 20 })] }),
-                  new Paragraph({ children: [new TextRun({ text: 'Pegawai,', font: FONT, size: 20 })] }),
-                  new Paragraph({
-                    spacing: { before: 0, after: 1200 },
-                    children: [new TextRun({ text: '', font: FONT, size: 1 })]
-                  }),
-                  new Paragraph({ children: [new TextRun({ text: user.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
-                  new Paragraph({ children: [new TextRun({ text: `NIP. ${user.nip}`, font: FONT, size: 18 })] }),
-                ]
-              }),
-            ]
-          })
-        ]
+        width: { size: 100, type: WidthType.PERCENTAGE }, borders: TABLE_NO_BORDER,
+        rows: [new TableRow({
+          children: [
+            new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [
+              new Paragraph({ children: [new TextRun({ text: 'Mengetahui,', font: FONT, size: 20 })] }),
+              new Paragraph({ children: [new TextRun({ text: pejabatPenilai.jabatan, font: FONT, size: 20 })] }),
+              new Paragraph({ spacing: { before: 0, after: 1200 }, children: [new TextRun({ text: '', font: FONT, size: 1 })] }),
+              new Paragraph({ children: [new TextRun({ text: pejabatPenilai.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
+              new Paragraph({ children: [new TextRun({ text: `NIP. ${pejabatPenilai.nip}`, font: FONT, size: 18 })] }),
+            ]}),
+            new TableCell({ width: { size: 50, type: WidthType.PERCENTAGE }, borders: NO_BORDER, children: [
+              new Paragraph({ children: [new TextRun({ text: signatureDateStr, font: FONT, size: 20 })] }),
+              new Paragraph({ children: [new TextRun({ text: 'Pegawai,', font: FONT, size: 20 })] }),
+              new Paragraph({ spacing: { before: 0, after: 1200 }, children: [new TextRun({ text: '', font: FONT, size: 1 })] }),
+              new Paragraph({ children: [new TextRun({ text: user.nama, bold: true, underline: {}, font: FONT, size: 20 })] }),
+              new Paragraph({ children: [new TextRun({ text: `NIP. ${user.nip}`, font: FONT, size: 18 })] }),
+            ]}),
+          ]
+        })]
       });
 
       const notesParagraph = new Paragraph({
         spacing: { before: 200 },
         children: [
           new TextRun({ text: 'Catatan:\n', bold: true, font: FONT, size: 18 }),
-          new TextRun({ text: 'Keterangan diisi dengan:\n', font: FONT, size: 18 }),
-          new TextRun({ text: '1. Nominal tunjangan kinerja yang diterima\n', font: FONT, size: 18 }),
-          new TextRun({ text: '2. Jumlah kehadiran\n', font: FONT, size: 18 }),
-          new TextRun({ text: '3. Nominal uang makan yang diterima', font: FONT, size: 18 }),
+          new TextRun({ text: 'Keterangan diisi dengan:\n1. Nominal tunjangan kinerja yang diterima\n2. Jumlah kehadiran\n3. Nominal uang makan yang diterima', font: FONT, size: 18 }),
         ]
       });
 
       const doc = new Document({
-        sections: [{
-          properties: {},
-          children: [titleParagraph, headerTable, new Paragraph({ text: '\n' }), dataTable, new Paragraph({ text: '\n\n' }), signatureTable, notesParagraph]
-        }]
+        sections: [{ properties: {}, children: [titleParagraph, headerTable, new Paragraph({ text: '\n' }), dataTable, new Paragraph({ text: '\n\n' }), signatureTable, notesParagraph] }]
       });
 
       const buffer = await Packer.toBuffer(doc);
@@ -401,12 +343,10 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
   }
 });
 
-const PDF_LH = 5; // line height in mm for font size 10
+const PDF_LH = 5;
 
-// ─── PDF Export ──────────────────────────────────────────────────────────────
-
-const PDF_COLS_T1 = [14, 62, 56, 38]; // NO, KEGIATAN, PEKERJAAN, TANGGAL
-const PDF_COLS_T2 = [16, 62, 36, 56]; // NO, URAIAN, ADA/TIDAK, KETERANGAN
+const PDF_COLS_T1 = [14, 62, 56, 38];
+const PDF_COLS_T2 = [16, 62, 36, 56];
 
 function pdfDrawTable(
   doc: jsPDF, headers: string[], body: string[][],
@@ -454,8 +394,7 @@ function pdfDrawTable(
     const texts = row.map((c, i) => cellTextLines(c, colWidths[i]));
     const rowH = cellHeight(texts);
     if (y + rowH > pageH - bottom) {
-      doc.addPage();
-      y = margin;
+      doc.addPage(); y = margin;
       drawCells(headers, margin, y, hdrH, headerBg);
       y += hdrH;
     }
@@ -465,8 +404,6 @@ function pdfDrawTable(
 
   return y;
 }
-
-// ─── PDF Meta Table helper (bordered label:value table) ───────────────
 
 function pdfDrawMetaTable(
   doc: jsPDF, rows: [string, string][],
@@ -488,7 +425,6 @@ function pdfDrawMetaTable(
 
     doc.setDrawColor(0);
     doc.setFontSize(fontSize);
-
     doc.rect(margin, y, labelW, rowH, 'S');
     doc.setFont('Helvetica', 'bold');
     labelLines.forEach((line, li) => doc.text(line, margin + pad, y + pad + (li + 1) * lineH * 0.7));
@@ -511,10 +447,10 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       return res.status(400).json({ error: 'user_id, month, year, dan template wajib diisi.' });
     }
 
-    const user = db.getUserById(user_id);
+    const user = await db.getUserById(user_id);
     if (!user) return res.status(404).json({ error: 'User tidak ditemukan.' });
 
-    const pejabatPenilai = db.getPejabatPenilai();
+    const pejabatPenilai = await db.getPejabatPenilai();
     const monthName = getNamaBulan(month);
     const lastDayOfMonth = new Date(year, month, 0).getDate();
     const totalHariKerja = totalHariKerjaInput || 22;
@@ -526,7 +462,7 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
     const defaultDateStr = `${lastDayOfMonth} ${monthName} ${year}`;
 
     if (template === 'template1') {
-      const activities = db.getStaffActivities(user_id, month, year);
+      const activities = await db.getStaffActivities(user_id, month, year);
 
       let printDateStr = defaultDateStr;
       if (customCetakDate && customCetakDate.trim() !== '') {
@@ -534,12 +470,10 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
         printDateStr = parts.length > 1 ? parts[1].trim() : customCetakDate.trim();
       }
 
-      // Title
       doc.setFontSize(16);
       doc.setFont('Helvetica', 'bold');
       doc.text('LAPORAN KINERJA', pgW / 2, margin, { align: 'center' });
 
-      // Metadata bordered table
       let y = margin + 12;
       doc.setFontSize(10);
       const metaRows: [string, string][] = [
@@ -548,7 +482,6 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       ];
       y = pdfDrawMetaTable(doc, metaRows, y, 38, contentW - 38, margin, 10);
 
-      // Tanggal Dicetak
       y += 5;
       doc.setFont('Helvetica', 'bold');
       doc.text('Tanggal Dicetak : ', margin, y);
@@ -556,7 +489,6 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       doc.text(printDateStr, margin + 36, y);
       y += 6;
 
-      // Data Table
       const headers = ['NO', 'KEGIATAN', 'PEKERJAAN', 'TANGGAL'];
 
       const map = new Map<string, typeof activities>();
@@ -574,7 +506,6 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       y = pdfDrawTable(doc, headers, body, y, PDF_COLS_T1, margin, 10);
       y += 10;
 
-      // Signature - no date, no jabatan, labels aligned
       const sigW = contentW / 2;
       const sigBase = y;
       doc.setFontSize(10);
@@ -603,12 +534,10 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
       const nominalUangMakan = totalHariKerja * 35150;
 
-      // Title
       doc.setFontSize(14);
       doc.setFont('Helvetica', 'bold');
       doc.text(`REKAP LAPORAN KINERJA BULAN ${monthName.toUpperCase()} ${year}`, pgW / 2, margin, { align: 'center' });
 
-      // Metadata (plain text) with photo
       let y = margin + 14;
       doc.setFontSize(10);
 
@@ -640,7 +569,6 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       }
       y += 3;
 
-      // Data Table
       const headers = ['NO', 'URAIAN', 'ADA / TIDAK ADA', 'KETERANGAN'];
       const body: string[][] = [
         ['1', 'Rekap Tunjangan Kinerja', 'Ada', formatRupiah(user.jumlah_tukin_bersih)],
@@ -652,12 +580,10 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       y = pdfDrawTable(doc, headers, body, y, PDF_COLS_T2, margin, 10);
       y += 10;
 
-      // Signature - same style as template1, with "Mengetahui" and city+date
       const sigW = contentW / 2;
       const sigBase = y;
       doc.setFontSize(10);
-
-      const leftGapBase = PDF_LH; // jabatan line offset
+      const leftGapBase = PDF_LH;
       let sx = margin;
       doc.setFont('Helvetica', 'normal');
       doc.text('Mengetahui,', sx, sigBase);

@@ -2,24 +2,23 @@ import { Router, Response } from 'express';
 import { db } from '../db/database';
 import { authMiddleware, AuthRequest } from '../middleware/auth';
 import { KUA_ACTIVITY_MAPPING } from '../../types/index';
+import { asyncHandler } from '../middleware/asyncHandler';
 
 const router = Router();
 
 router.use(authMiddleware);
 
-// GET /api/staff-activities
-router.get('/', (req: AuthRequest, res: Response) => {
+router.get('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const queryUserId = req.query.user_id ? String(req.query.user_id) : undefined;
   const userId = queryUserId === 'all' ? undefined : (queryUserId || req.user?.id);
   const month = req.query.month ? Number(req.query.month) : undefined;
   const year = req.query.year ? Number(req.query.year) : undefined;
 
-  const activities = db.getStaffActivities(userId, month, year);
+  const activities = await db.getStaffActivities(userId, month, year);
   return res.json({ activities });
-});
+}));
 
-// POST /api/staff-activities/batch
-router.post('/batch', (req: AuthRequest, res: Response) => {
+router.post('/batch', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { items } = req.body;
   const user_id = req.body.user_id || req.user?.id;
 
@@ -34,22 +33,17 @@ router.post('/batch', (req: AuthRequest, res: Response) => {
 
     let finalTotal = Number(total_jumlah) || 1;
 
-    const newAct = db.createStaffActivity({
-      user_id,
-      tanggal,
-      kegiatan,
-      pekerjaan,
-      activity_type_key,
-      total_jumlah: finalTotal
+    const newAct = await db.createStaffActivity({
+      user_id, tanggal, kegiatan, pekerjaan,
+      activity_type_key, total_jumlah: finalTotal
     });
     createdActivities.push(newAct);
   }
 
   return res.status(201).json({ activities: createdActivities, message: `${createdActivities.length} kegiatan berhasil ditambahkan ke laporan.` });
-});
+}));
 
-// POST /api/staff-activities
-router.post('/', (req: AuthRequest, res: Response) => {
+router.post('/', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { tanggal, kegiatan, pekerjaan, activity_type_key, total_jumlah } = req.body;
   const user_id = req.body.user_id || req.user?.id;
 
@@ -59,29 +53,23 @@ router.post('/', (req: AuthRequest, res: Response) => {
 
   let finalTotal = Number(total_jumlah) || 1;
 
-  // Auto-sync matched volume from kua_daily_data if activity_type_key is provided
   if (activity_type_key && KUA_ACTIVITY_MAPPING[activity_type_key]) {
     const field = KUA_ACTIVITY_MAPPING[activity_type_key].field;
-    const dailyData = db.getKuaDailyByDate(tanggal);
+    const dailyData = await db.getKuaDailyByDate(tanggal);
     if (dailyData && typeof dailyData[field] === 'number') {
-      finalTotal = dailyData[field];
+      finalTotal = dailyData[field] as number;
     }
   }
 
-  const newActivity = db.createStaffActivity({
-    user_id,
-    tanggal,
-    kegiatan,
-    pekerjaan,
-    activity_type_key,
-    total_jumlah: finalTotal
+  const newActivity = await db.createStaffActivity({
+    user_id, tanggal, kegiatan, pekerjaan,
+    activity_type_key, total_jumlah: finalTotal
   });
 
   return res.status(201).json({ activity: newActivity });
-});
+}));
 
-// PUT /api/staff-activities/:id
-router.put('/:id', (req: AuthRequest, res: Response) => {
+router.put('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
   const { tanggal, kegiatan, pekerjaan, activity_type_key, total_jumlah } = req.body;
 
@@ -89,13 +77,13 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
 
   if (activity_type_key && tanggal && KUA_ACTIVITY_MAPPING[activity_type_key]) {
     const field = KUA_ACTIVITY_MAPPING[activity_type_key].field;
-    const dailyData = db.getKuaDailyByDate(tanggal);
+    const dailyData = await db.getKuaDailyByDate(tanggal);
     if (dailyData && typeof dailyData[field] === 'number') {
-      finalTotal = dailyData[field];
+      finalTotal = dailyData[field] as number;
     }
   }
 
-  const updated = db.updateStaffActivity(id, {
+  const updated = await db.updateStaffActivity(id, {
     ...(tanggal && { tanggal }),
     ...(kegiatan && { kegiatan }),
     ...(pekerjaan && { pekerjaan }),
@@ -108,16 +96,15 @@ router.put('/:id', (req: AuthRequest, res: Response) => {
   }
 
   return res.json({ activity: updated });
-});
+}));
 
-// DELETE /api/staff-activities/:id
-router.delete('/:id', (req: AuthRequest, res: Response) => {
+router.delete('/:id', asyncHandler(async (req: AuthRequest, res: Response) => {
   const { id } = req.params;
-  const deleted = db.deleteStaffActivity(id);
+  const deleted = await db.deleteStaffActivity(id);
   if (!deleted) {
     return res.status(404).json({ error: 'Log kegiatan tidak ditemukan.' });
   }
   return res.json({ message: 'Log kegiatan berhasil dihapus.' });
-});
+}));
 
 export default router;

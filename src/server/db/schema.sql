@@ -52,6 +52,7 @@ CREATE TABLE IF NOT EXISTS staff_activities (
     tanggal DATE NOT NULL,
     kegiatan TEXT NOT NULL,
     pekerjaan TEXT NOT NULL,
+    activity_type_key VARCHAR(100),
     total_jumlah INT DEFAULT 1,
     created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
@@ -68,6 +69,31 @@ CREATE TABLE IF NOT EXISTS pejabat_penilai (
     updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
 );
 
+-- 5. Telegram Logs Table
+CREATE TABLE IF NOT EXISTS telegram_logs (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    command TEXT NOT NULL,
+    chat_id VARCHAR(100) NOT NULL,
+    user_name VARCHAR(255) NOT NULL,
+    message TEXT NOT NULL,
+    status VARCHAR(20) NOT NULL CHECK (status IN ('sent', 'received', 'failed')),
+    timestamp TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP
+);
+
+-- 6. User Activity Templates Table (custom template kalimat per user per activity_type)
+CREATE TABLE IF NOT EXISTS user_activity_templates (
+    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+    user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+    activity_type_key VARCHAR(100) NOT NULL,
+    kegiatan TEXT NOT NULL,
+    pekerjaan TEXT NOT NULL,
+    created_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP WITH TIME ZONE DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE(user_id, activity_type_key)
+);
+
 -- Indexes for performance optimization
 CREATE INDEX IF NOT EXISTS idx_kua_daily_tanggal ON kua_daily_data(tanggal);
 CREATE INDEX IF NOT EXISTS idx_staff_activities_user_date ON staff_activities(user_id, tanggal);
+CREATE INDEX IF NOT EXISTS idx_staff_activities_activity_key ON staff_activities(activity_type_key);
+CREATE INDEX IF NOT EXISTS idx_user_templates_user_key ON user_activity_templates(user_id, activity_type_key);
