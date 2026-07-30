@@ -221,7 +221,7 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
                 Cetak & Ekspor Laporan
               </h4>
               <p className="text-xs text-slate-500 dark:text-slate-400 mt-1">
-                Ekspor Template 1 (Laporan Kinerja) & Template 2 (Rekap Tukin) ke PDF, Excel, dan Word.
+                Ekspor Template 1 (Laporan Kinerja) & Template 2 (Rekap Tukin) ke PDF dan Word.
               </p>
             </button>
 

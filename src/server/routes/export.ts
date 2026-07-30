@@ -233,6 +233,9 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
       return res.send(buffer);
 
     } else if (template === 'template2') {
+      const settings = await db.getSettings();
+      const kuaInstansi = settings.kua_instansi || user.instansi || 'KUA Ampelgading';
+
       const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
       const nominalUangMakan = totalHariKerja * 35150;
 
@@ -246,7 +249,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
         ['Nama', user.nama],
         ['NIP', user.nip],
         ['Jabatan', user.jabatan],
-        ['Instansi', user.instansi],
+        ['Instansi', kuaInstansi],
         ['Grade Tukin', `Grade ${user.grade_tukin}`],
         ['Nilai Tukin Bersih', formatRupiah(user.jumlah_tukin_bersih)],
       ].map(([label, val]) => new TableRow({
@@ -600,6 +603,9 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       return res.send(buf);
 
     } else if (template === 'template2') {
+      const settings = await db.getSettings();
+      const kuaInstansi = settings.kua_instansi || user.instansi || 'KUA Ampelgading';
+
       const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
       const nominalUangMakan = totalHariKerja * 35150;
 
@@ -614,7 +620,7 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
 
       const meta: [string, string][] = [
         ['Nama', user.nama], ['NIP', user.nip], ['Jabatan', user.jabatan],
-        ['Instansi', user.instansi], ['Grade Tukin', `Grade ${user.grade_tukin}`],
+        ['Instansi', kuaInstansi], ['Grade Tukin', `Grade ${user.grade_tukin}`],
         ['Nilai Tukin (Bersih)', formatRupiah(user.jumlah_tukin_bersih)],
       ];
       const labelW = 42;

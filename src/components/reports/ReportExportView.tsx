@@ -4,17 +4,12 @@ import { StaffActivity, PejabatPenilai, User } from '../../types/index';
 import { TemplateLaporanKinerja } from './TemplateLaporanKinerja';
 import { TemplateRekapTukin } from './TemplateRekapTukin';
 import { exportLaporanKinerjaPdf, exportRekapTukinPdf } from '../../utils/exportPdf';
-import { exportLaporanKinerjaExcel, exportRekapTukinExcel } from '../../utils/exportExcel';
 import { exportLaporanKinerjaWord, exportRekapTukinWord } from '../../utils/exportWord';
 import {
   FileText,
   Download,
-  FileSpreadsheet,
   FileCode2,
   Printer,
-  Filter,
-  CheckCircle2,
-  Calendar
 } from 'lucide-react';
 
 interface Props {
@@ -91,7 +86,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
     if (activeTemplate === 'template1') {
       setCustomCetakDate(`${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
     } else {
-      setCustomCetakDate(`${kuaName}, ${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
+      setCustomCetakDate(`Malang, ${lastDay} ${monthNames[selectedMonth - 1]} ${selectedYear}`);
     }
   }, [selectedMonth, selectedYear, activeTemplate, kuaName]);
 
@@ -116,14 +111,41 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
     }
   };
 
-  const handleExportExcel = () => {
-    if (!targetUser || !pejabatPenilai) return;
-    showToast('info', 'Mengunduh berkas Excel (.xlsx)...');
-    if (activeTemplate === 'template1') {
-      exportLaporanKinerjaExcel(targetUser, selectedMonth, selectedYear, activities, pejabatPenilai, customCetakDate);
-    } else {
-      exportRekapTukinExcel(targetUser, selectedMonth, selectedYear, pejabatPenilai, totalHariKerja, customCetakDate);
-    }
+  const handlePrintDirect = () => {
+    const containerId = activeTemplate === 'template1' ? 'template-laporan-kinerja' : 'template-rekap-tukin';
+    const el = document.getElementById(containerId);
+    if (!el) return;
+
+    const styles = document.querySelectorAll('style, link[rel="stylesheet"]');
+    let stylesHtml = '';
+    styles.forEach(s => {
+      if (s.tagName === 'STYLE') stylesHtml += s.outerHTML;
+      else if (s.tagName === 'LINK') stylesHtml += s.outerHTML;
+    });
+
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html>
+      <head>
+        <title>Cetak Laporan</title>
+        ${stylesHtml}
+        <style>
+          html, body { margin: 0; padding: 0; background: white; color: black; }
+          body { padding: 15mm; }
+          * { box-shadow: none !important; }
+          .dark * { background: white !important; color: black !important; }
+          @page { margin: 15mm; }
+          img { max-width: 100%; }
+        </style>
+      </head>
+      <body>${el.outerHTML}</body>
+      </html>
+    `);
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => { printWindow.print(); printWindow.close(); }, 500);
   };
 
   const handleExportWord = async () => {
@@ -152,7 +174,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
             <span>Cetak & Ekspor Laporan Kinerja KUA</span>
           </h2>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Pratinjau resmi dokumen Template 1 & Template 2 dan unduh langsung dalam format PDF, Excel, atau Word.
+            Pratinjau resmi dokumen Template 1 & Template 2 dan unduh langsung dalam format PDF atau Word.
           </p>
         </div>
 
@@ -167,14 +189,6 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
           </button>
 
           <button
-            onClick={handleExportExcel}
-            className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-semibold text-xs shadow-md shadow-emerald-600/20 transition-all"
-          >
-            <FileSpreadsheet className="w-3.5 h-3.5" />
-            <span>Ekspor Excel (.xlsx)</span>
-          </button>
-
-          <button
             onClick={handleExportWord}
             className="flex items-center space-x-1.5 px-3.5 py-2 rounded-xl bg-blue-600 hover:bg-blue-500 text-white font-semibold text-xs shadow-md shadow-blue-600/20 transition-all"
           >
@@ -183,7 +197,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
           </button>
 
           <button
-            onClick={() => window.print()}
+            onClick={handlePrintDirect}
             className="flex items-center space-x-1.5 px-3 py-2 rounded-xl bg-slate-100 dark:bg-slate-800 hover:bg-slate-200 dark:hover:bg-slate-700 text-slate-800 dark:text-slate-200 font-semibold text-xs transition-all"
           >
             <Printer className="w-3.5 h-3.5" />
@@ -328,6 +342,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
               pejabatPenilai={pejabatPenilai}
               totalHariKerja={totalHariKerja}
               customCetakDate={customCetakDate}
+              kuaName={kuaName}
             />
           )}
         </div>

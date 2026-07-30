@@ -10,6 +10,7 @@ interface Props {
   totalHariKerja?: number;
   containerId?: string;
   customCetakDate?: string;
+  kuaName?: string;
 }
 
 export const TemplateRekapTukin: React.FC<Props> = ({
@@ -19,12 +20,13 @@ export const TemplateRekapTukin: React.FC<Props> = ({
   pejabatPenilai,
   totalHariKerja = 22,
   containerId = 'template-rekap-tukin',
-  customCetakDate
+  customCetakDate,
+  kuaName
 }) => {
   const monthName = getNamaBulan(month);
   const lastDayOfMonth = new Date(year, month, 0).getDate();
   const signatureDateStr = `${lastDayOfMonth} ${monthName} ${year}`;
-  const displayCetakDate = customCetakDate ? customCetakDate : `Malang, ${signatureDateStr}`;
+  const displayCetakDate = `Malang, ${signatureDateStr}`;
   
   // Rate uang makan per hari = Rp 35.150
   const nominalUangMakan = totalHariKerja * 35150;
@@ -63,7 +65,7 @@ export const TemplateRekapTukin: React.FC<Props> = ({
           <div className="flex">
             <span className="w-36 font-semibold text-slate-700">Instansi</span>
             <span className="w-4 font-semibold">:</span>
-            <span className="font-medium text-slate-800">{user.instansi}</span>
+            <span className="font-medium text-slate-800">{kuaName || user.instansi}</span>
           </div>
           <div className="flex">
             <span className="w-36 font-semibold text-slate-700">Grade Tukin</span>
