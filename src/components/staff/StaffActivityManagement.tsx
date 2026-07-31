@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StaffActivity, KuaDailyData, UserActivityTemplatesMap } from '../../types/index';
 import { MasterColumn, getMasterColumns } from '../admin/KuaDailyManagement';
+import { useYearOptions } from '../../utils/years';
 import { UserTemplateSettings } from './UserTemplateSettings';
 import {
   FileSpreadsheet,
@@ -79,6 +80,7 @@ interface ImportItemSelection {
 
 export const StaffActivityManagement: React.FC<Props> = ({ showToast }) => {
   const { token } = useAuth();
+  const yearOptions = useYearOptions(token);
   const [activities, setActivities] = useState<StaffActivity[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -517,7 +519,7 @@ export const StaffActivityManagement: React.FC<Props> = ({ showToast }) => {
               onChange={e => setSelectedYear(Number(e.target.value))}
               className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
             >
-              {[2025, 2026, 2027].map(y => (
+              {yearOptions.map(y => (
                 <option key={y} value={y} className="dark:bg-slate-800">{y}</option>
               ))}
             </select>
@@ -680,7 +682,7 @@ export const StaffActivityManagement: React.FC<Props> = ({ showToast }) => {
                     onChange={e => handleImportMonthYearChange(importMonth, Number(e.target.value))}
                     className="px-2.5 py-1.5 rounded-lg bg-white dark:bg-slate-900 border border-slate-300 dark:border-slate-700 text-xs font-semibold focus:outline-none"
                   >
-                    {[2025, 2026, 2027].map(y => (
+                    {yearOptions.map(y => (
                       <option key={y} value={y}>{y}</option>
                     ))}
                   </select>

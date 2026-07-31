@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { KuaDailyData } from '../../types/index';
+import { useYearOptions } from '../../utils/years';
 import {
   Plus,
   Edit2,
@@ -55,6 +56,7 @@ export function getMasterColumns(): MasterColumn[] {
 
 export const KuaDailyManagement: React.FC<Props> = ({ showToast }) => {
   const { token } = useAuth();
+  const yearOptions = useYearOptions(token);
   const [dataList, setDataList] = useState<KuaDailyData[]>([]);
   const [loading, setLoading] = useState(true);
 
@@ -267,7 +269,7 @@ export const KuaDailyManagement: React.FC<Props> = ({ showToast }) => {
               onChange={e => setSelectedYear(Number(e.target.value))}
               className="bg-transparent border-none text-slate-800 dark:text-slate-200 focus:outline-none cursor-pointer"
             >
-              {[2025, 2026, 2027].map(y => (
+              {yearOptions.map(y => (
                 <option key={y} value={y} className="dark:bg-slate-800">{y}</option>
               ))}
             </select>

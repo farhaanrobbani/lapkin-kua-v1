@@ -12,6 +12,7 @@ import telegramRoutes from './src/server/routes/telegram';
 import exportRoutes from './src/server/routes/export';
 import userTemplateRoutes from './src/server/routes/userTemplates';
 import settingsRoutes from './src/server/routes/settings';
+import metaRoutes from './src/server/routes/meta';
 
 async function startServer() {
   await initDatabase();
@@ -36,6 +37,7 @@ async function startServer() {
   app.use('/api/export', exportRoutes);
   app.use('/api/user-templates', userTemplateRoutes);
   app.use('/api/settings', settingsRoutes);
+  app.use('/api/meta', metaRoutes);
 
   // Vite middleware in development
   if (process.env.NODE_ENV !== 'production') {

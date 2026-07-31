@@ -588,6 +588,17 @@ export const db = {
     } catch {}
     return 'KUA Ampelgading';
   },
+
+  async getAvailableYears(): Promise<number[]> {
+    await ensureReady();
+    const result = await pool.query(`
+      SELECT DISTINCT EXTRACT(YEAR FROM tanggal)::int AS tahun FROM kua_daily_data
+      UNION
+      SELECT DISTINCT EXTRACT(YEAR FROM tanggal)::int AS tahun FROM staff_activities
+      ORDER BY tahun
+    `);
+    return result.rows.map(r => r.tahun);
+  },
 };
 
 export async function initDatabase() {

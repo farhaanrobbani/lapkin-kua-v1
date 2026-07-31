@@ -5,6 +5,7 @@ import { TemplateLaporanKinerja } from './TemplateLaporanKinerja';
 import { TemplateRekapTukin } from './TemplateRekapTukin';
 import { exportLaporanKinerjaPdf, exportRekapTukinPdf } from '../../utils/exportPdf';
 import { exportLaporanKinerjaWord, exportRekapTukinWord } from '../../utils/exportWord';
+import { useYearOptions } from '../../utils/years';
 import {
   FileText,
   Download,
@@ -17,6 +18,7 @@ interface Props {
 
 export const ReportExportView: React.FC<Props> = ({ showToast }) => {
   const { token, user } = useAuth();
+  const yearOptions = useYearOptions(token);
   
   const [selectedMonth, setSelectedMonth] = useState<number>(7);
   const [selectedYear, setSelectedYear] = useState<number>(2026);
@@ -235,7 +237,7 @@ export const ReportExportView: React.FC<Props> = ({ showToast }) => {
               onChange={e => setSelectedYear(Number(e.target.value))}
               className="bg-transparent border-none text-slate-800 dark:text-slate-200 font-semibold focus:outline-none cursor-pointer"
             >
-              {[2025, 2026, 2027].map(y => (
+              {yearOptions.map(y => (
                 <option key={y} value={y} className="dark:bg-slate-800">{y}</option>
               ))}
             </select>
