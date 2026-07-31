@@ -57,6 +57,10 @@ async function ensureReady() {
     ALTER TABLE pejabat_penilai ADD COLUMN IF NOT EXISTS opsi_anchor_ttd VARCHAR(10) DEFAULT ''
   `);
 
+  await pool.query(`
+    ALTER TABLE users ADD COLUMN IF NOT EXISTS jumlah_uang_makan_harian DECIMAL(15,2) DEFAULT 35150
+  `);
+
   const result = await pool.query('SELECT COUNT(*)::int as cnt FROM users');
   if (result.rows[0].cnt === 0) {
     await seedData();
@@ -74,9 +78,9 @@ async function seedData() {
   const PEJABAT_ID = 'a0000000-0000-0000-0000-000000000003';
 
   await pool.query(`
-    INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi) VALUES
-    ($1, 'admin@kua.go.id', $2, 'admin', 'H. Bambang Sugiarto, S.Ag', '198005122008011012', 'Pengelola Laporan KUA & Keuangan', 'Pelaksana', 'Penata Muda Tk. I', 'III/b', 7, 3915000, 3719250, 3400000, 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading'),
-    ($3, 'staf@kua.go.id', $4, 'staf', 'Ahmad Fauzi, S.HI', '198808152014031002', 'Penghulu Ahli Pertama', 'Fungsional', 'Penata Muda', 'III/a', 8, 4595000, 4365250, 3600000, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading')
+    INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, jumlah_uang_makan_harian, foto_profil_url, tanda_tangan_url, instansi) VALUES
+    ($1, 'admin@kua.go.id', $2, 'admin', 'H. Bambang Sugiarto, S.Ag', '198005122008011012', 'Pengelola Laporan KUA & Keuangan', 'Pelaksana', 'Penata Muda Tk. I', 'III/b', 7, 3915000, 3719250, 3400000, 35150, 'https://images.unsplash.com/photo-1472099645785-5658abf4ff4e?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading'),
+    ($3, 'staf@kua.go.id', $4, 'staf', 'Ahmad Fauzi, S.HI', '198808152014031002', 'Penghulu Ahli Pertama', 'Fungsional', 'Penata Muda', 'III/a', 8, 4595000, 4365250, 3600000, 35150, 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150', 'https://images.unsplash.com/photo-1600132806370-bf17e65e942f?w=300', 'KUA Ampelgading')
   `, [ADMIN_ID, adminPasswordHash, STAF_ID, stafPasswordHash]);
 
   await pool.query(`
@@ -155,6 +159,7 @@ function rowToUser(row: any, includePassword = false): User {
     jumlah_tukin_kotor: Number(row.jumlah_tukin_kotor) || 0,
     jumlah_tukin_bersih: Number(row.jumlah_tukin_bersih) || 0,
     gapok: Number(row.gapok) || 0,
+    jumlah_uang_makan_harian: Number(row.jumlah_uang_makan_harian) || 35150,
     foto_profil_url: row.foto_profil_url || '',
     tanda_tangan_url: row.tanda_tangan_url || '',
     instansi: row.instansi || 'KUA Ampelgading',
@@ -274,15 +279,15 @@ export const db = {
     const id = user.id || undefined;
     const defaultInstansi = await getKuaInstansi();
     const result = await pool.query(`
-      INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, foto_profil_url, tanda_tangan_url, instansi)
-      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17)
+      INSERT INTO users (id, email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan, grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, jumlah_uang_makan_harian, foto_profil_url, tanda_tangan_url, instansi)
+      VALUES (COALESCE($1, gen_random_uuid()), $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13, $14, $15, $16, $17, $18)
       RETURNING *
     `, [
       id, user.email, passwordHash, user.role, user.nama, user.nip,
       user.jabatan || 'Staf / Pegawai KUA', user.level_jabatan || 'Pelaksana',
       user.pangkat || 'Penata Muda', user.ruang_golongan || 'III/a',
       user.grade_tukin || 8, user.jumlah_tukin_kotor || 0, user.jumlah_tukin_bersih || 0,
-      user.gapok || 0, user.foto_profil_url || '', user.tanda_tangan_url || '',
+      user.gapok || 0, user.jumlah_uang_makan_harian || 35150, user.foto_profil_url || '', user.tanda_tangan_url || '',
       user.instansi || defaultInstansi,
     ]);
     return rowToUser(result.rows[0]);
@@ -300,13 +305,13 @@ export const db = {
     const merged = { ...current, ...updates, updated_at: new Date().toISOString() };
 
     const result = await pool.query(`
-      UPDATE users SET email=$1, password=$2, role=$3, nama=$4, nip=$5, jabatan=$6, level_jabatan=$7, pangkat=$8, ruang_golongan=$9, grade_tukin=$10, jumlah_tukin_kotor=$11, jumlah_tukin_bersih=$12, gapok=$13, foto_profil_url=$14, tanda_tangan_url=$15, instansi=$16, updated_at=$17
-      WHERE id=$18 RETURNING *
+      UPDATE users SET email=$1, password=$2, role=$3, nama=$4, nip=$5, jabatan=$6, level_jabatan=$7, pangkat=$8, ruang_golongan=$9, grade_tukin=$10, jumlah_tukin_kotor=$11, jumlah_tukin_bersih=$12, gapok=$13, jumlah_uang_makan_harian=$14, foto_profil_url=$15, tanda_tangan_url=$16, instansi=$17, updated_at=$18
+      WHERE id=$19 RETURNING *
     `, [
       merged.email, newPassword, merged.role, merged.nama, merged.nip,
       merged.jabatan, merged.level_jabatan, merged.pangkat, merged.ruang_golongan,
       merged.grade_tukin, merged.jumlah_tukin_kotor, merged.jumlah_tukin_bersih, merged.gapok,
-      merged.foto_profil_url, merged.tanda_tangan_url, merged.instansi,
+      merged.jumlah_uang_makan_harian, merged.foto_profil_url, merged.tanda_tangan_url, merged.instansi,
       merged.updated_at, id,
     ]);
     return rowToUser(result.rows[0]);

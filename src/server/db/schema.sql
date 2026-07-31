@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS users (
     jumlah_tukin_kotor DECIMAL(15, 2) DEFAULT 0,
     jumlah_tukin_bersih DECIMAL(15, 2) DEFAULT 0,
     gapok DECIMAL(15, 2) DEFAULT 0,
+    jumlah_uang_makan_harian DECIMAL(15, 2) DEFAULT 35150,
     foto_profil_url TEXT,
     tanda_tangan_url TEXT,
     instansi VARCHAR(255) DEFAULT 'KUA Ampelgading',

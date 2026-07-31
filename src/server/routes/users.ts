@@ -21,7 +21,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
   try {
     const {
       email, password, role, nama, nip, jabatan, level_jabatan, pangkat, ruang_golongan,
-      grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok,
+      grade_tukin, jumlah_tukin_kotor, jumlah_tukin_bersih, gapok, jumlah_uang_makan_harian,
       instansi, foto_profil_url, tanda_tangan_url
     } = req.body;
 
@@ -50,6 +50,7 @@ router.post('/', async (req: AuthRequest, res: Response) => {
         jumlah_tukin_kotor: Number(jumlah_tukin_kotor) || 0,
         jumlah_tukin_bersih: Number(jumlah_tukin_bersih) || 0,
         gapok: Number(gapok) || 0,
+        jumlah_uang_makan_harian: Number(jumlah_uang_makan_harian) || 35150,
         foto_profil_url: foto_profil_url || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
         tanda_tangan_url: tanda_tangan_url || '',
         instansi: instansi || defaultInstansi

@@ -238,7 +238,7 @@ router.post('/word', async (req: AuthRequest, res: Response) => {
       const kuaInstansi = settings.kua_instansi || user.instansi || 'KUA Ampelgading';
 
       const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
-      const nominalUangMakan = totalHariKerja * 35150;
+      const nominalUangMakan = totalHariKerja * (user.jumlah_uang_makan_harian || 35150);
 
       const titleParagraph = new Paragraph({
         alignment: AlignmentType.CENTER,
@@ -616,7 +616,7 @@ router.post('/pdf', async (req: AuthRequest, res: Response) => {
       const kuaInstansi = settings.kua_instansi || user.instansi || 'KUA Ampelgading';
 
       const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
-      const nominalUangMakan = totalHariKerja * 35150;
+      const nominalUangMakan = totalHariKerja * (user.jumlah_uang_makan_harian || 35150);
 
       // Title
       doc.setFontSize(14);

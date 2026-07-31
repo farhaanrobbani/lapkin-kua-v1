@@ -14,6 +14,7 @@ export interface User {
   jumlah_tukin_kotor: number;
   jumlah_tukin_bersih: number;
   gapok: number;
+  jumlah_uang_makan_harian: number;
   foto_profil_url: string;
   tanda_tangan_url?: string;
   instansi: string;

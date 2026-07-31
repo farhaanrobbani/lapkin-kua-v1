@@ -22,6 +22,7 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, sho
     jumlah_tukin_kotor: 4595000,
     jumlah_tukin_bersih: 4365250,
     gapok: 3600000,
+    jumlah_uang_makan_harian: 35150,
     instansi: 'KUA Ampelgading'
   });
   const [loading, setLoading] = useState(false);
@@ -215,6 +216,19 @@ export const RegisterForm: React.FC<RegisterFormProps> = ({ onSwitchToLogin, sho
                   className="px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
                 />
               </div>
+            </div>
+
+            <div>
+              <label className="block text-xs font-medium text-slate-700 dark:text-slate-300 mb-1">
+                Uang Makan Harian (Rp)
+              </label>
+              <input
+                type="number"
+                value={formData.jumlah_uang_makan_harian}
+                onChange={e => setFormData({ ...formData, jumlah_uang_makan_harian: Number(e.target.value) })}
+                placeholder="35150"
+                className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs focus:ring-2 focus:ring-emerald-500 outline-none"
+              />
             </div>
           </div>
 

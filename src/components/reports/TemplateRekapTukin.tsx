@@ -28,8 +28,8 @@ export const TemplateRekapTukin: React.FC<Props> = ({
   const signatureDateStr = `${lastDayOfMonth} ${monthName} ${year}`;
   const displayCetakDate = customCetakDate || `Malang, ${signatureDateStr}`;
   
-  // Rate uang makan per hari = Rp 35.150
-  const nominalUangMakan = totalHariKerja * 35150;
+  // Rate uang makan harian dari data user, dikali jumlah kehadiran
+  const nominalUangMakan = totalHariKerja * (user.jumlah_uang_makan_harian || 35150);
 
   return (
     <div

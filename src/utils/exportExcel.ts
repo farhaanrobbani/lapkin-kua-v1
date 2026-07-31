@@ -123,7 +123,7 @@ export function exportRekapTukinExcel(
   const monthName = getNamaBulan(month);
   const lastDayOfMonth = new Date(year, month, 0).getDate();
   const signatureDateStr = customCetakDate || `Malang, ${lastDayOfMonth} ${monthName} ${year}`;
-  const nominalUangMakan = totalHariKerja * 35150;
+  const nominalUangMakan = totalHariKerja * (user.jumlah_uang_makan_harian || 35150);
 
   const merges: XLSX.Range[] = [];
   let r = 0;

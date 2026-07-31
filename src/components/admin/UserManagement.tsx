@@ -71,6 +71,7 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
       jumlah_tukin_kotor: 4595000,
       jumlah_tukin_bersih: 4365250,
       gapok: 3600000,
+      jumlah_uang_makan_harian: 35150,
       instansi: defaultInstansi,
       foto_profil_url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=150',
       tanda_tangan_url: ''
@@ -179,19 +180,20 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
                 <th className="p-3">Jabatan & Golongan</th>
                 <th className="p-3">Grade & Tukin Kotor</th>
                 <th className="p-3">Tukin Bersih</th>
+                <th className="p-3">Uang Makan/Hari</th>
                 <th className="p-3 text-right">Aksi</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100 dark:divide-slate-800/60">
               {loading ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400">
+                  <td colSpan={8} className="p-8 text-center text-slate-400">
                     Memuat data akun pengguna...
                   </td>
                 </tr>
               ) : users.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="p-8 text-center text-slate-400 italic">
+                  <td colSpan={8} className="p-8 text-center text-slate-400 italic">
                     Belum ada akun pengguna terdaftar.
                   </td>
                 </tr>
@@ -240,6 +242,10 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
 
                     <td className="p-3 font-semibold text-emerald-600 dark:text-emerald-400">
                       {formatRupiah(u.jumlah_tukin_bersih)}
+                    </td>
+
+                    <td className="p-3 font-semibold text-amber-600 dark:text-amber-400">
+                      {formatRupiah(u.jumlah_uang_makan_harian)}/hari
                     </td>
 
                     <td className="p-3 text-right whitespace-nowrap">
@@ -446,6 +452,18 @@ export const UserManagement: React.FC<Props> = ({ showToast }) => {
                     type="number"
                     value={editingUser.jumlah_tukin_bersih ?? 4365250}
                     onChange={e => setEditingUser({ ...editingUser, jumlah_tukin_bersih: Number(e.target.value) })}
+                    className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
+                  />
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold text-slate-700 dark:text-slate-300 mb-1">
+                    Jumlah Uang Makan Harian (Rp)
+                  </label>
+                  <input
+                    type="number"
+                    value={editingUser.jumlah_uang_makan_harian ?? 35150}
+                    onChange={e => setEditingUser({ ...editingUser, jumlah_uang_makan_harian: Number(e.target.value) })}
                     className="w-full px-3 py-2 rounded-xl border border-slate-300 dark:border-slate-700 bg-slate-50 dark:bg-slate-800 text-slate-900 dark:text-white text-xs outline-none"
                   />
                 </div>
