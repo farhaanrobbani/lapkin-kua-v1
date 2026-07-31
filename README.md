@@ -18,16 +18,12 @@ Aplikasi web Sistem Informasi Laporan Kinerja KUA (Kantor Urusan Agama) terinteg
    - Surat Keluar
    - Pelaksanaan Akta Wakaf
 
-3. **Cetak & Ekspor Laporan Presisi (PDF, Excel, Word)**
-   - **Template 1**: Laporan Kinerja Harian / Bulanan Pegawai dengan footer TTD Pejabat Penilai & Pegawai.
-   - **Template 2**: REKAP LAPORAN KINERJA BULAN (Tukin, Kehadiran, Uang Makan, Laporan) dengan foto pegawai & stempel resmi KUA.
+3. **Cetak & Ekspor Laporan Presisi (PDF, Word)**
+   - **Template 1**: Laporan Kinerja Harian / Bulanan Pegawai dengan footer anchor TTE Pejabat Penilai & Pegawai.
+   - **Template 2**: REKAP LAPORAN KINERJA BULAN (Tukin, Kehadiran, Uang Makan, Laporan) dengan foto pegawai.
 
-4. **Bot Telegram Official & Scheduler**
-   - Webhook & auto-retry pengiriman pesan HTML.
-   - Perintah: `/start`, `/today`, `/upcoming`, `/kendaraan`, `/dokumen`, `/pembayaran`.
-
-5. **Pengaturan Pejabat Penilai Dinamis**
-   - Perubahan Nama, NIP, dan Stempel Kepala KUA dilakukan langsung via panel Admin tanpa mengubah kode program.
+4. **Pengaturan Pejabat Penilai Dinamis**
+   - Perubahan Nama, NIP, dan Anchor Kepala KUA dilakukan langsung via panel Admin tanpa mengubah kode program.
 
 ---
 
