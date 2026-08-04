@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { StaffActivity, KuaDailyData, UserActivityTemplatesMap } from '../../types/index';
-import { MasterColumn, getMasterColumns } from '../admin/KuaDailyManagement';
+import { MasterColumn, getMasterColumns, syncMasterColumnsFromServer } from '../admin/KuaDailyManagement';
 import { useYearOptions } from '../../utils/years';
 import { UserTemplateSettings } from './UserTemplateSettings';
 import {
@@ -95,6 +95,12 @@ export const StaffActivityManagement: React.FC<Props> = ({ showToast }) => {
     window.addEventListener('kua_master_columns_updated', handleMasterColumnsUpdated);
     return () => window.removeEventListener('kua_master_columns_updated', handleMasterColumnsUpdated);
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      syncMasterColumnsFromServer(token).then(cols => setMasterColumns(cols));
+    }
+  }, [token]);
 
   useEffect(() => {
     fetchUserTemplates();

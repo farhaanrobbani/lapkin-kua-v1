@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { MasterColumn, getMasterColumns } from '../admin/KuaDailyManagement';
+import { MasterColumn, getMasterColumns, syncMasterColumnsFromServer } from '../admin/KuaDailyManagement';
 import { UserActivityTemplatesMap } from '../../types/index';
 import {
   FileText,
@@ -39,6 +39,12 @@ export const UserTemplateSettings: React.FC<Props> = ({ showToast, onTemplatesUp
     window.addEventListener('kua_master_columns_updated', handleColumnsUpdated);
     return () => window.removeEventListener('kua_master_columns_updated', handleColumnsUpdated);
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      syncMasterColumnsFromServer(token).then(cols => setMasterColumns(cols));
+    }
+  }, [token]);
 
   useEffect(() => {
     if (isOpen) {

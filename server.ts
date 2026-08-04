@@ -13,6 +13,7 @@ import exportRoutes from './src/server/routes/export';
 import userTemplateRoutes from './src/server/routes/userTemplates';
 import settingsRoutes from './src/server/routes/settings';
 import metaRoutes from './src/server/routes/meta';
+import masterColumnsRoutes from './src/server/routes/masterColumns';
 
 async function startServer() {
   await initDatabase();
@@ -38,6 +39,7 @@ async function startServer() {
   app.use('/api/user-templates', userTemplateRoutes);
   app.use('/api/settings', settingsRoutes);
   app.use('/api/meta', metaRoutes);
+  app.use('/api/master-columns', masterColumnsRoutes);
 
   // Vite middleware in development
   if (process.env.NODE_ENV !== 'production') {

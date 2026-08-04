@@ -23,6 +23,7 @@ import {
   computeCardValue,
   DashboardCardDef
 } from './dashboardCards';
+import { syncMasterColumnsFromServer } from '../admin/KuaDailyManagement';
 
 export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ onNavigate }) => {
   const { user, token } = useAuth();
@@ -89,6 +90,15 @@ export const OverviewStats: React.FC<{ onNavigate: (tab: any) => void }> = ({ on
       window.removeEventListener('kua_master_columns_updated', onMasterUpdate);
     };
   }, []);
+
+  useEffect(() => {
+    if (token) {
+      syncMasterColumnsFromServer(token).then(() => {
+        setCards(getDashboardCards());
+        setSelectedCardIds(getDashboardCardSelection());
+      });
+    }
+  }, [token]);
 
   const visibleCards = cards.filter(c => selectedCardIds.includes(c.id));
 

@@ -54,6 +54,57 @@ export function getMasterColumns(): MasterColumn[] {
   return DEFAULT_COLUMNS;
 }
 
+let serverColumns: MasterColumn[] | null = null;
+
+export async function saveMasterColumnsToServer(token: string | null, cols: MasterColumn[]): Promise<boolean> {
+  if (!token) return false;
+  try {
+    const res = await fetch('/api/master-columns', {
+      method: 'PUT',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`
+      },
+      body: JSON.stringify({ columns: cols })
+    });
+    if (res.ok) {
+      const json = await res.json();
+      serverColumns = Array.isArray(json.columns) ? json.columns : cols;
+      return true;
+    }
+  } catch {
+    // silent
+  }
+  return false;
+}
+
+export async function syncMasterColumnsFromServer(token?: string | null): Promise<MasterColumn[]> {
+  const local = getMasterColumns();
+  if (!token) return local;
+  try {
+    const res = await fetch('/api/master-columns', {
+      headers: { 'Authorization': `Bearer ${token}` }
+    });
+    if (res.ok) {
+      const json = await res.json();
+      const cols: MasterColumn[] = Array.isArray(json.columns) ? json.columns : [];
+      if (cols.length > 0) {
+        serverColumns = cols;
+        localStorage.setItem('kua_master_columns', JSON.stringify(cols));
+        window.dispatchEvent(new Event('kua_master_columns_updated'));
+        return cols;
+      }
+      // Server kosong: migrasi otomatis kolom kustom lokal (bukan default) ke server
+      if (local.length > 0 && JSON.stringify(local) !== JSON.stringify(DEFAULT_COLUMNS)) {
+        await saveMasterColumnsToServer(token ?? null, local);
+      }
+    }
+  } catch {
+    // silent fallback ke localStorage / default
+  }
+  return local;
+}
+
 export const KuaDailyManagement: React.FC<Props> = ({ showToast }) => {
   const { token } = useAuth();
   const yearOptions = useYearOptions(token);
@@ -80,6 +131,8 @@ export const KuaDailyManagement: React.FC<Props> = ({ showToast }) => {
     setColumns(newCols);
     localStorage.setItem('kua_master_columns', JSON.stringify(newCols));
     window.dispatchEvent(new Event('kua_master_columns_updated'));
+    if (token) saveMasterColumnsToServer(token, newCols);
+    else serverColumns = newCols;
   };
 
   const fetchDailyData = async () => {
@@ -99,6 +152,12 @@ export const KuaDailyManagement: React.FC<Props> = ({ showToast }) => {
       setLoading(false);
     }
   };
+
+  useEffect(() => {
+    if (token) {
+      syncMasterColumnsFromServer(token).then(cols => setColumns(cols));
+    }
+  }, [token]);
 
   useEffect(() => {
     if (token) fetchDailyData();
